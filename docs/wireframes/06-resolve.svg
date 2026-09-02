@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="620" viewBox="0 0 360 620" font-family="'IBM Plex Mono','SFMono-Regular',Consolas,monospace" role="img" aria-label="Wireframe: Conflict resolution screen comparing the inspector's version with the office version">
+  <title>Sitepad 06 — Resolve</title>
+  <rect x="0.5" y="0.5" width="359" height="619" rx="16" fill="#F4F5F1" stroke="#A9AF9F"/>
+
+  <text x="14" y="17" font-size="9.5" fill="#6B7268">16:21</text>
+  <text x="346" y="17" font-size="9.5" fill="#6B7268" text-anchor="end">4G · 41%</text>
+  <line x1="1" y1="25" x2="359" y2="25" stroke="#CFD3C8"/>
+
+  <rect x="1" y="25" width="358" height="32" fill="#F7E4E3"/>
+  <line x1="1" y1="57" x2="359" y2="57" stroke="#CFD3C8"/>
+  <circle cx="22" cy="41" r="4" fill="#A81E1A"/>
+  <text x="34" y="45" font-size="10.5" fill="#A81E1A">1 needs your call</text>
+
+  <text x="14" y="84" font-size="16" font-weight="700" fill="#171A16" font-family="'Helvetica Neue',Arial,sans-serif">9 Renwick St</text>
+  <text x="14" y="102" font-size="10.5" fill="#6B7268">Changed in the office at 14:02, while</text>
+  <text x="14" y="117" font-size="10.5" fill="#6B7268">you were offline</text>
+  <line x1="1" y1="130" x2="359" y2="130" stroke="#CFD3C8"/>
+
+  <text x="14" y="152" font-size="10.5" fill="#3C4239">2 of 19 items differ. Everything else</text>
+  <text x="14" y="168" font-size="10.5" fill="#3C4239">merged automatically.</text>
+
+  <rect x="14" y="184" width="161" height="176" rx="3" fill="#FFFFFF" stroke="#171A16" stroke-width="2"/>
+  <text x="26" y="204" font-size="8" fill="#6B7268">YOURS · 15:10</text>
+  <text x="26" y="226" font-size="11.5" fill="#171A16">4.2 Handrail</text>
+  <text x="26" y="250" font-size="14" font-weight="700" fill="#A81E1A" font-family="'Helvetica Neue',Arial,sans-serif">Fail</text>
+  <text x="26" y="270" font-size="9.5" fill="#6B7268">1 photo, note</text>
+  <text x="26" y="286" font-size="9.5" fill="#6B7268">"Loose at top fixing"</text>
+  <rect x="26" y="306" width="137" height="34" rx="3" fill="#EAECE7" stroke="#171A16"/>
+  <text x="94.5" y="327" font-size="9.5" font-weight="600" fill="#171A16" text-anchor="middle">KEEP MINE ✓</text>
+
+  <rect x="185" y="184" width="161" height="176" rx="3" fill="#FFFFFF" stroke="#CFD3C8"/>
+  <text x="197" y="204" font-size="8" fill="#6B7268">OFFICE · 14:02</text>
+  <text x="197" y="226" font-size="11.5" fill="#171A16">4.2 Handrail</text>
+  <text x="197" y="250" font-size="14" font-weight="700" fill="#1B6E3C" font-family="'Helvetica Neue',Arial,sans-serif">Pass</text>
+  <text x="197" y="270" font-size="9.5" fill="#6B7268">No photo</text>
+  <text x="197" y="286" font-size="9.5" fill="#6B7268">No note</text>
+  <rect x="197" y="306" width="137" height="34" rx="3" fill="none" stroke="#A9AF9F"/>
+  <text x="265.5" y="327" font-size="9.5" fill="#6B7268" text-anchor="middle">Keep theirs</text>
+
+  <rect x="14" y="376" width="332" height="34" rx="3" fill="none" stroke="#A9AF9F" stroke-dasharray="4 3"/>
+  <text x="180" y="397" font-size="9.5" fill="#6B7268" text-anchor="middle">1 more difference · 4.3 Landing width</text>
+
+  <rect x="14" y="518" width="332" height="44" rx="4" fill="#171A16"/>
+  <text x="180" y="545" font-size="11.5" font-weight="600" fill="#F4F5F1" text-anchor="middle">RESOLVE AND SEND</text>
+  <text x="180" y="580" font-size="9.5" fill="#6B7268" text-anchor="middle">Both versions are kept in the record's</text>
+  <text x="180" y="594" font-size="9.5" fill="#6B7268" text-anchor="middle">history either way.</text>
+</svg>

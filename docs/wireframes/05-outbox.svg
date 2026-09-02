@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="620" viewBox="0 0 360 620" font-family="'IBM Plex Mono','SFMono-Regular',Consolas,monospace" role="img" aria-label="Wireframe: Outbox screen showing queued and sent inspections">
+  <title>Sitepad 05 — Outbox</title>
+  <rect x="0.5" y="0.5" width="359" height="619" rx="16" fill="#F4F5F1" stroke="#A9AF9F"/>
+
+  <text x="14" y="17" font-size="9.5" fill="#6B7268">16:20</text>
+  <text x="346" y="17" font-size="9.5" fill="#6B7268" text-anchor="end">4G · 41%</text>
+  <line x1="1" y1="25" x2="359" y2="25" stroke="#CFD3C8"/>
+
+  <rect x="1" y="25" width="358" height="32" fill="#E2ECF6"/>
+  <line x1="1" y1="57" x2="359" y2="57" stroke="#CFD3C8"/>
+  <circle cx="22" cy="41" r="4" fill="#14559E"/>
+  <text x="34" y="45" font-size="10.5" fill="#14559E">Sending 2 of 4…</text>
+
+  <text x="14" y="84" font-size="18" font-weight="700" fill="#171A16" font-family="'Helvetica Neue',Arial,sans-serif">Outbox</text>
+  <text x="14" y="101" font-size="10.5" fill="#6B7268">4 waiting · 12.8 MB · back in range 16:19</text>
+  <line x1="1" y1="112" x2="359" y2="112" stroke="#CFD3C8"/>
+
+  <rect x="14" y="124" width="332" height="58" rx="3" fill="#FFFFFF" stroke="#CFD3C8"/>
+  <text x="26" y="146" font-size="11.5" fill="#171A16">14 Wharf Rd</text>
+  <text x="26" y="164" font-size="10" fill="#6B7268">16:19 · 1.2 s</text>
+  <rect x="290" y="136" width="44" height="16" rx="2" fill="#E3EFE7"/>
+  <circle cx="298" cy="144" r="2.5" fill="#1B6E3C"/>
+  <text x="304" y="147.5" font-size="8" fill="#1B6E3C">SENT</text>
+
+  <rect x="14" y="192" width="332" height="58" rx="3" fill="#FFFFFF" stroke="#CFD3C8"/>
+  <text x="26" y="214" font-size="11.5" fill="#171A16">2/88 Trafalgar St</text>
+  <text x="26" y="232" font-size="10" fill="#6B7268">3 photos · 2.4 MB</text>
+  <rect x="276" y="204" width="58" height="16" rx="2" fill="#E2ECF6"/>
+  <circle cx="284" cy="212" r="2.5" fill="#14559E"/>
+  <text x="290" y="215.5" font-size="8" fill="#14559E">SENDING</text>
+
+  <rect x="14" y="260" width="332" height="58" rx="3" fill="#FFFFFF" stroke="#CFD3C8"/>
+  <text x="26" y="282" font-size="11.5" fill="#171A16">Lot 7, Bells Line Rd</text>
+  <text x="26" y="300" font-size="10" fill="#6B7268">Queued 13:47</text>
+  <rect x="276" y="272" width="58" height="16" rx="2" fill="#F6EDDF"/>
+  <circle cx="284" cy="280" r="2.5" fill="#96590A"/>
+  <text x="290" y="283.5" font-size="8" fill="#96590A">WAITING</text>
+
+  <rect x="14" y="328" width="332" height="76" rx="3" fill="#FFFFFF" stroke="#A81E1A" stroke-width="2"/>
+  <text x="26" y="350" font-size="11.5" fill="#171A16">9 Renwick St</text>
+  <rect x="26" y="360" width="96" height="16" rx="2" fill="#F7E4E3"/>
+  <circle cx="34" cy="368" r="2.5" fill="#A81E1A"/>
+  <text x="40" y="371.5" font-size="8" fill="#A81E1A">NEEDS YOUR CALL</text>
+  <text x="26" y="392" font-size="10" fill="#6B7268">Office edited this while you were out</text>
+
+  <rect x="14" y="424" width="332" height="26" rx="3" fill="none" stroke="#A9AF9F" stroke-dasharray="4 3"/>
+  <text x="180" y="441" font-size="9.5" fill="#6B7268" text-anchor="middle">Sent today · 7 inspections · clears at midnight</text>
+
+  <rect x="14" y="518" width="332" height="44" rx="4" fill="none" stroke="#A9AF9F"/>
+  <text x="180" y="545" font-size="11.5" font-weight="600" fill="#171A16" text-anchor="middle">Send all now</text>
+  <text x="180" y="580" font-size="9.5" fill="#6B7268" text-anchor="middle">Sending happens by itself. This button is</text>
+  <text x="180" y="594" font-size="9.5" fill="#6B7268" text-anchor="middle">here so you don't have to wonder.</text>
+</svg>

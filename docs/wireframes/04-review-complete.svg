@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="620" viewBox="0 0 360 620" font-family="'IBM Plex Mono','SFMono-Regular',Consolas,monospace" role="img" aria-label="Wireframe: Review and complete screen">
+  <title>Sitepad 04 — Review &amp; complete</title>
+  <rect x="0.5" y="0.5" width="359" height="619" rx="16" fill="#F4F5F1" stroke="#A9AF9F"/>
+
+  <text x="14" y="17" font-size="9.5" fill="#6B7268">11:02</text>
+  <text x="346" y="17" font-size="9.5" fill="#6B7268" text-anchor="end">No signal · 82%</text>
+  <line x1="1" y1="25" x2="359" y2="25" stroke="#CFD3C8"/>
+
+  <rect x="1" y="25" width="358" height="32" fill="#F6EDDF"/>
+  <line x1="1" y1="57" x2="359" y2="57" stroke="#CFD3C8"/>
+  <circle cx="22" cy="41" r="4" fill="#96590A"/>
+  <text x="34" y="45" font-size="10.5" fill="#96590A">Saved on this device</text>
+
+  <text x="14" y="84" font-size="16" font-weight="700" fill="#171A16" font-family="'Helvetica Neue',Arial,sans-serif">Review &amp; complete</text>
+  <text x="14" y="101" font-size="10.5" fill="#6B7268">2/88 Trafalgar St · Final</text>
+  <line x1="1" y1="112" x2="359" y2="112" stroke="#CFD3C8"/>
+
+  <rect x="14" y="124" width="332" height="46" rx="3" fill="#FFFFFF" stroke="#CFD3C8"/>
+  <text x="26" y="152" font-size="11.5" fill="#171A16">31 items checked</text>
+  <rect x="272" y="139" width="62" height="16" rx="2" fill="#E3EFE7"/>
+  <circle cx="280" cy="147" r="2.5" fill="#1B6E3C"/>
+  <text x="286" y="150.5" font-size="8" fill="#1B6E3C">COMPLETE</text>
+
+  <rect x="14" y="182" width="332" height="88" rx="3" fill="#FFFFFF" stroke="#D99A97"/>
+  <text x="26" y="204" font-size="11.5" fill="#171A16">2 fails recorded</text>
+  <text x="26" y="226" font-size="10" fill="#6B7268">3.3 Smoke alarm — bed 2 · 2 photos</text>
+  <text x="26" y="244" font-size="10" fill="#6B7268">5.1 Balustrade height · 1 photo</text>
+
+  <rect x="14" y="282" width="332" height="46" rx="3" fill="#FFFFFF" stroke="#CFD3C8"/>
+  <text x="26" y="310" font-size="11.5" fill="#171A16">3 photos · 2.4 MB</text>
+  <text x="334" y="310" font-size="9.5" fill="#6B7268" text-anchor="end">will upload</text>
+
+  <rect x="14" y="340" width="332" height="96" rx="3" fill="#FFFFFF" stroke="#CFD3C8"/>
+  <text x="26" y="359" font-size="8" fill="#6B7268">SIGNATURE</text>
+  <rect x="26" y="368" width="308" height="56" rx="3" fill="none" stroke="#A9AF9F" stroke-dasharray="4 3"/>
+  <text x="180" y="401" font-size="10" fill="#6B7268" text-anchor="middle">sign here</text>
+
+  <rect x="14" y="518" width="332" height="44" rx="4" fill="#171A16"/>
+  <text x="180" y="545" font-size="11" font-weight="600" fill="#F4F5F1" text-anchor="middle">COMPLETE &amp; QUEUE TO SEND</text>
+  <text x="180" y="580" font-size="9.5" fill="#6B7268" text-anchor="middle">You have no signal. This will send by itself</text>
+  <text x="180" y="594" font-size="9.5" fill="#6B7268" text-anchor="middle">when you're back in range.</text>
+</svg>

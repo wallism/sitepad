@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="620" viewBox="0 0 360 620" font-family="'IBM Plex Mono','SFMono-Regular',Consolas,monospace" role="img" aria-label="Wireframe: Inspection checklist screen">
+  <title>Sitepad 02 — Inspection</title>
+  <rect x="0.5" y="0.5" width="359" height="619" rx="16" fill="#F4F5F1" stroke="#A9AF9F"/>
+
+  <text x="14" y="17" font-size="9.5" fill="#6B7268">10:34</text>
+  <text x="346" y="17" font-size="9.5" fill="#6B7268" text-anchor="end">No signal · 84%</text>
+  <line x1="1" y1="25" x2="359" y2="25" stroke="#CFD3C8"/>
+
+  <rect x="1" y="25" width="358" height="32" fill="#F6EDDF"/>
+  <line x1="1" y1="57" x2="359" y2="57" stroke="#CFD3C8"/>
+  <circle cx="22" cy="41" r="4" fill="#96590A"/>
+  <text x="34" y="45" font-size="10.5" fill="#96590A">Saved on this device</text>
+
+  <text x="14" y="84" font-size="16" font-weight="700" fill="#171A16" font-family="'Helvetica Neue',Arial,sans-serif">2/88 Trafalgar St</text>
+  <text x="14" y="101" font-size="10.5" fill="#6B7268">Final inspection · 18 of 31 done · 2 fails</text>
+  <line x1="1" y1="112" x2="359" y2="112" stroke="#CFD3C8"/>
+
+  <rect x="1" y="112" width="358" height="30" fill="#E7EAE2"/>
+  <line x1="1" y1="142" x2="359" y2="142" stroke="#CFD3C8"/>
+  <text x="14" y="131" font-size="9.5" fill="#6B7268">Sections · Wet areas · <tspan fill="#171A16">Electrical</tspan> · Egress</text>
+
+  <rect x="14" y="154" width="332" height="80" rx="3" fill="#FFFFFF" stroke="#CFD3C8"/>
+  <text x="26" y="176" font-size="11.5" fill="#171A16">3.2 Smoke alarm — hallway</text>
+  <rect x="26" y="188" width="99" height="34" rx="3" fill="#E3EFE7" stroke="#1B6E3C"/>
+  <text x="75.5" y="209" font-size="10" fill="#1B6E3C" text-anchor="middle">PASS</text>
+  <rect x="130.5" y="188" width="99" height="34" rx="3" fill="none" stroke="#CFD3C8"/>
+  <text x="180" y="209" font-size="10" fill="#6B7268" text-anchor="middle">Fail</text>
+  <rect x="235" y="188" width="99" height="34" rx="3" fill="none" stroke="#CFD3C8"/>
+  <text x="284.5" y="209" font-size="10" fill="#6B7268" text-anchor="middle">N/A</text>
+
+  <rect x="14" y="244" width="332" height="172" rx="3" fill="#FFFFFF" stroke="#CFD3C8"/>
+  <text x="26" y="266" font-size="11.5" fill="#171A16">3.3 Smoke alarm — bed 2</text>
+  <rect x="26" y="278" width="99" height="34" rx="3" fill="none" stroke="#CFD3C8"/>
+  <text x="75.5" y="299" font-size="10" fill="#6B7268" text-anchor="middle">Pass</text>
+  <rect x="130.5" y="278" width="99" height="34" rx="3" fill="#F7E4E3" stroke="#A81E1A"/>
+  <text x="180" y="299" font-size="10" fill="#A81E1A" text-anchor="middle">FAIL</text>
+  <rect x="235" y="278" width="99" height="34" rx="3" fill="none" stroke="#CFD3C8"/>
+  <text x="284.5" y="299" font-size="10" fill="#6B7268" text-anchor="middle">N/A</text>
+  <text x="26" y="333" font-size="10" fill="#3C4239">Not interconnected. Sparky notified</text>
+  <text x="26" y="347" font-size="10" fill="#3C4239">on site.</text>
+  <rect x="26" y="358" width="99" height="44" rx="3" fill="none" stroke="#A9AF9F" stroke-dasharray="4 3"/>
+  <text x="75.5" y="384" font-size="9.5" fill="#6B7268" text-anchor="middle">photo</text>
+  <rect x="130.5" y="358" width="99" height="44" rx="3" fill="none" stroke="#A9AF9F" stroke-dasharray="4 3"/>
+  <text x="180" y="384" font-size="9.5" fill="#6B7268" text-anchor="middle">photo</text>
+  <rect x="235" y="358" width="99" height="44" rx="3" fill="none" stroke="#A9AF9F" stroke-dasharray="4 3"/>
+  <text x="284.5" y="384" font-size="9.5" fill="#6B7268" text-anchor="middle">+ add</text>
+
+  <rect x="14" y="426" width="332" height="80" rx="3" fill="#FFFFFF" stroke="#CFD3C8"/>
+  <text x="26" y="448" font-size="11.5" fill="#171A16">3.4 Emergency lighting</text>
+  <rect x="26" y="460" width="99" height="34" rx="3" fill="none" stroke="#CFD3C8"/>
+  <text x="75.5" y="481" font-size="10" fill="#6B7268" text-anchor="middle">Pass</text>
+  <rect x="130.5" y="460" width="99" height="34" rx="3" fill="none" stroke="#CFD3C8"/>
+  <text x="180" y="481" font-size="10" fill="#6B7268" text-anchor="middle">Fail</text>
+  <rect x="235" y="460" width="99" height="34" rx="3" fill="none" stroke="#CFD3C8"/>
+  <text x="284.5" y="481" font-size="10" fill="#6B7268" text-anchor="middle">N/A</text>
+
+  <rect x="14" y="518" width="332" height="26" rx="3" fill="none" stroke="#A9AF9F" stroke-dasharray="4 3"/>
+  <text x="180" y="535" font-size="9.5" fill="#6B7268" text-anchor="middle">13 more items · scroll</text>
+
+  <rect x="14" y="558" width="332" height="44" rx="4" fill="#171A16"/>
+  <text x="180" y="585" font-size="11.5" font-weight="600" fill="#F4F5F1" text-anchor="middle">REVIEW &amp; COMPLETE</text>
+</svg>

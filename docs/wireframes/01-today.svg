@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="620" viewBox="0 0 360 620" font-family="'IBM Plex Mono','SFMono-Regular',Consolas,monospace" role="img" aria-label="Wireframe: Today screen, the day's inspection list">
+  <title>Sitepad 01 — Today</title>
+  <rect x="0.5" y="0.5" width="359" height="619" rx="16" fill="#F4F5F1" stroke="#A9AF9F"/>
+
+  <text x="14" y="17" font-size="9.5" fill="#6B7268">9:41</text>
+  <text x="346" y="17" font-size="9.5" fill="#6B7268" text-anchor="end">No signal · 87%</text>
+  <line x1="1" y1="25" x2="359" y2="25" stroke="#CFD3C8"/>
+
+  <rect x="1" y="25" width="358" height="32" fill="#F6EDDF"/>
+  <line x1="1" y1="57" x2="359" y2="57" stroke="#CFD3C8"/>
+  <circle cx="22" cy="41" r="4" fill="#96590A"/>
+  <text x="34" y="45" font-size="10.5" fill="#96590A">3 inspections waiting to send</text>
+
+  <text x="14" y="84" font-size="18" font-weight="700" fill="#171A16" font-family="'Helvetica Neue',Arial,sans-serif">Today</text>
+  <text x="14" y="101" font-size="10.5" fill="#6B7268">Thursday 12 March · 6 sites</text>
+  <line x1="1" y1="112" x2="359" y2="112" stroke="#CFD3C8"/>
+
+  <rect x="14" y="124" width="332" height="72" rx="3" fill="#FFFFFF" stroke="#CFD3C8"/>
+  <text x="26" y="145" font-size="11.5" fill="#171A16">14 Wharf Rd, Marrickville</text>
+  <text x="26" y="161" font-size="10" fill="#6B7268">Pre-plaster · 9:00 · 24 items</text>
+  <rect x="26" y="170" width="44" height="16" rx="2" fill="#E3EFE7"/>
+  <circle cx="34" cy="178" r="2.5" fill="#1B6E3C"/>
+  <text x="40" y="181.5" font-size="8" fill="#1B6E3C">SENT</text>
+  <text x="334" y="182" font-size="9.5" fill="#6B7268" text-anchor="end">Done 8:52</text>
+
+  <rect x="14" y="206" width="332" height="72" rx="3" fill="#FFFFFF" stroke="#A9AF9F" stroke-width="2"/>
+  <text x="26" y="227" font-size="11.5" fill="#171A16">2/88 Trafalgar St, Annandale</text>
+  <text x="26" y="243" font-size="10" fill="#6B7268">Final · 10:30 · 31 items</text>
+  <rect x="26" y="252" width="92" height="16" rx="2" fill="#F6EDDF"/>
+  <circle cx="34" cy="260" r="2.5" fill="#96590A"/>
+  <text x="40" y="263.5" font-size="8" fill="#96590A">ON THIS DEVICE</text>
+  <text x="334" y="264" font-size="9.5" fill="#6B7268" text-anchor="end">18 of 31</text>
+
+  <rect x="14" y="288" width="332" height="72" rx="3" fill="#FFFFFF" stroke="#CFD3C8"/>
+  <text x="26" y="309" font-size="11.5" fill="#171A16">Lot 7, Bells Line Rd</text>
+  <text x="26" y="325" font-size="10" fill="#6B7268">Frame · 13:00 · 19 items</text>
+  <rect x="26" y="334" width="96" height="16" rx="2" fill="#F6EDDF"/>
+  <circle cx="34" cy="342" r="2.5" fill="#96590A"/>
+  <text x="40" y="345.5" font-size="8" fill="#96590A">WAITING TO SEND</text>
+  <text x="334" y="346" font-size="9.5" fill="#6B7268" text-anchor="end">Ready</text>
+
+  <rect x="14" y="370" width="332" height="72" rx="3" fill="#FFFFFF" stroke="#CFD3C8"/>
+  <text x="26" y="391" font-size="11.5" fill="#171A16">31 Denison St, Camperdown</text>
+  <text x="26" y="407" font-size="10" fill="#6B7268">Pre-pour · 14:45 · 12 items</text>
+  <rect x="26" y="416" width="92" height="16" rx="2" fill="#EAECE7"/>
+  <circle cx="34" cy="424" r="2.5" fill="#6B7268"/>
+  <text x="40" y="427.5" font-size="8" fill="#6B7268">NOT STARTED</text>
+
+  <rect x="14" y="454" width="332" height="30" rx="3" fill="none" stroke="#A9AF9F" stroke-dasharray="4 3"/>
+  <text x="180" y="473" font-size="10" fill="#6B7268" text-anchor="middle">2 more · scroll</text>
+
+  <line x1="1" y1="560" x2="359" y2="560" stroke="#CFD3C8"/>
+  <rect x="14" y="560" width="104" height="2" fill="#171A16"/>
+  <text x="66" y="586" font-size="9.5" fill="#171A16" text-anchor="middle">Today</text>
+  <text x="180" y="586" font-size="9.5" fill="#6B7268" text-anchor="middle">Outbox 3</text>
+  <text x="294" y="586" font-size="9.5" fill="#6B7268" text-anchor="middle">Me</text>
+</svg>
