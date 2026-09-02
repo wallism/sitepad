@@ -634,13 +634,15 @@ Do not add installability or Background Sync until the foreground flow passes ev
 
 ## Implementation Tasks
 
-- [ ] **T1 (P1)** — Scaffold only the React/Vite TypeScript client, Vitest, React Testing Library, and Playwright; leave `server/` absent.
-- [ ] **T2 (P1)** — Implement the three-item inspection slice, revision-aware selectors, and immediate optimistic rendering.
-- [ ] **T3 (P1)** — Implement the raw IndexedDB adapter with versioned schema, short transactions, non-destructive hydration retry, and typed error results.
-- [ ] **T4 (P1)** — Implement the RTK listener with a 300 ms injectable debounce, one active write plus one coalesced latest snapshot per inspection, and stale-result protection.
-- [ ] **T5 (P1)** — Add edit-lock acquisition, read-only fallback, manual takeover by reload, and `versionchange` connection handling.
-- [ ] **T6 (P1)** — Add the Milestone 1 unit, component, real-browser integration, and Playwright proofs from the test map.
-- [ ] **T7 (P1)** — Produce the evidence packet and stop; do not begin Milestone 2 until every Milestone 1 gate passes.
+- [x] **T1 (P1)** — Scaffold only the React/Vite TypeScript client, Vitest, React Testing Library, and Playwright; leave `server/` absent.
+- [x] **T2 (P1)** — Implement the three-item inspection slice, revision-aware selectors, and immediate optimistic rendering.
+- [x] **T3 (P1)** — Implement the raw IndexedDB adapter with versioned schema, short transactions, non-destructive hydration retry, and typed error results.
+- [x] **T4 (P1)** — Implement the RTK listener with a 300 ms injectable debounce, one active write plus one coalesced latest snapshot per inspection, and stale-result protection.
+- [x] **T5 (P1)** — Add edit-lock acquisition, read-only fallback, manual takeover by reload, and `versionchange` connection handling.
+- [x] **T6 (P1)** — Add the Milestone 1 unit, component, real-browser integration, and Playwright proofs from the test map.
+- [x] **T7 (P1)** — Produce the evidence packet and stop; do not begin Milestone 2 until every Milestone 1 gate passes.
+
+**Milestone 1 completed:** 2026-09-03. All gates passed; see the [`20260903-milestone-1-evidence.md`](20260903-milestone-1-evidence.md) evidence packet. Milestone 2 is now eligible for explicit authorization and remains unstarted.
 
 Implementation is sequential because the slice contracts, listener actions, adapter results, UI copy, and browser tests all meet at the same small client seam. Parallel worktrees would create more coordination than useful concurrency for Milestone 1.
 
