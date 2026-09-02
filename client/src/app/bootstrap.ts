@@ -46,7 +46,10 @@ export function bootstrapSitepad(
         inspectionId: hydration.inspection.inspectionId,
         revision: hydration.inspection.localRevision,
       })
-      store.dispatch(inspectionActions.inspectionHydrated(hydration.inspection))
+      store.dispatch(inspectionActions.inspectionHydrated(hydration))
+      if (hydration.outbox && ['pending', 'retryable', 'sending'].includes(hydration.outbox.status)) {
+        store.dispatch(inspectionActions.syncRequested())
+      }
     } else {
       logger.error('app.hydration_failed', { code: hydration.code })
       store.dispatch(inspectionActions.hydrationFailed(hydration.code))

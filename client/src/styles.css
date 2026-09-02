@@ -91,6 +91,22 @@ button { touch-action: manipulation; }
 
 .checklist { display: grid; gap: 0.8rem; padding: 1rem; }
 
+.completion-panel { display: grid; gap: 0.65rem; padding: 0 1rem 1.25rem; }
+.completion-panel p { margin: 0; color: #565d53; line-height: 1.45; }
+.complete-button, .retry-send-button {
+  min-height: 3.25rem;
+  border: 0;
+  border-radius: 0.45rem;
+  color: #fff;
+  background: #171a16;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.035em;
+}
+.complete-button:disabled { cursor: not-allowed; opacity: 0.46; }
+.retry-send-button { color: #171a16; border: 1px solid #737b6f; background: #fff; }
+.completion-copy { padding: 0.9rem; border: 1px solid #cfd3c8; border-radius: 0.45rem; background: #fff; }
+
 .checklist-card {
   padding: 1rem;
   border: 1px solid #cfd3c8;

@@ -11,6 +11,28 @@ function hydratedState() {
 }
 
 describe('inspection reducer and durability selector', () => {
+  it('captures completion once and freezes later edits', () => {
+    let state = hydratedState()
+    for (const item of fixtureInspection.items) {
+      state = inspectionReducer(state, inspectionActions.itemResultChanged({
+        itemId: item.itemId,
+        result: 'pass',
+      }))
+    }
+
+    state = inspectionReducer(state, inspectionActions.completionRequested())
+    const duplicate = inspectionReducer(state, inspectionActions.completionRequested())
+    const lateEdit = inspectionReducer(duplicate, inspectionActions.itemNoteChanged({
+      itemId: fixtureInspection.items[0].itemId,
+      note: 'late',
+    }))
+
+    expect(lateEdit.inspection?.lifecycle).toBe('completing')
+    expect(lateEdit.completionTargetRevision).toBe(3)
+    expect(lateEdit.inspection?.items[0].note).toBe('')
+    expect(lateEdit.events.filter((event) => event.event === 'completionRequested')).toHaveLength(1)
+  })
+
   it('updates an item and revision synchronously, then reports Saving', () => {
     const state = inspectionReducer(hydratedState(), inspectionActions.itemResultChanged({
       itemId: 'smoke-hallway',

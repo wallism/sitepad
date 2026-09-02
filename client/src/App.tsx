@@ -16,9 +16,19 @@ interface AppProps {
   editLock: EditLock
   logger?: AppLogger
   onFailNextWrite?: () => void
+  onFailNextSend?: () => void
+  onFailNextResponseWrite?: () => void
 }
 
-export function App({ store, storage, editLock, logger = noopLogger, onFailNextWrite }: AppProps) {
+export function App({
+  store,
+  storage,
+  editLock,
+  logger = noopLogger,
+  onFailNextWrite,
+  onFailNextSend,
+  onFailNextResponseWrite,
+}: AppProps) {
   const dispatch = useAppDispatch()
   const hydration = useAppSelector(selectHydration)
   const status = useAppSelector(selectDurabilityStatus)
@@ -36,8 +46,27 @@ export function App({ store, storage, editLock, logger = noopLogger, onFailNextW
     return () => document.removeEventListener('visibilitychange', flushWhenHidden)
   }, [dispatch])
 
+  useEffect(() => {
+    const requestSync = () => dispatch(inspectionActions.syncRequested())
+    const requestWhenVisible = () => {
+      if (document.visibilityState === 'visible') requestSync()
+    }
+    globalThis.addEventListener('online', requestSync)
+    document.addEventListener('visibilitychange', requestWhenVisible)
+    return () => {
+      globalThis.removeEventListener('online', requestSync)
+      document.removeEventListener('visibilitychange', requestWhenVisible)
+    }
+  }, [dispatch])
+
   if (hydration === 'ready') {
-    return <InspectionScreen onFailNextWrite={onFailNextWrite} />
+    return (
+      <InspectionScreen
+        onFailNextWrite={onFailNextWrite}
+        onFailNextSend={onFailNextSend}
+        onFailNextResponseWrite={onFailNextResponseWrite}
+      />
+    )
   }
 
   const canRetry = hydration === 'hydration_error'

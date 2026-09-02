@@ -1,46 +1,71 @@
 # Sitepad
 
-Sitepad is an offline-first inspection application for field work where connectivity is unreliable. The project is also a focused learning build for React, Redux Toolkit, and browser storage, with each milestone proving a durability or delivery boundary before adding more product scope.
+Sitepad is an offline-first inspection application for field work where connectivity is unreliable. It is also a focused learning build for React, Redux Toolkit, IndexedDB, idempotent delivery, and SQLite. Each milestone proves one durability or delivery boundary before adding more product scope.
 
 ## Current scope
 
-Milestone 1 is a client-only local-durability slice built around one synthetic inspection. An edit appears immediately, receives a monotonically increasing Redux revision, and is written to IndexedDB. The UI reports **On this device** only after the corresponding transaction commits.
+Milestone 2 delivers one synthetic inspection from local editing through durable foreground delivery:
 
-The current build also covers reload recovery, debounced and serialized writes, write retries, database upgrade handling, and a single-writer tab lock. It intentionally has no server, networking, authentication, photo capture, or production data. A .NET 10 delivery API is planned for a later milestone.
+1. React dispatches checklist intent.
+2. Redux immediately projects the new revision.
+3. An RTK listener commits the revision to IndexedDB.
+4. The first **Complete & queue to send** freezes editing, flushes the captured revision, and atomically creates one self-contained outbox operation.
+5. The foreground coordinator claims that operation with a 30-second lease and sends its exact stored JSON representation.
+6. The .NET API applies the operation once through a SQLite idempotency ledger.
+7. The client commits the claim-correlated response to IndexedDB before showing a terminal delivery state.
+
+The UI can show **On this device**, **Finishing on this device**, **Waiting to send**, **Sending**, **Couldn't send - will retry**, **Sent**, **Needs your call**, or **Couldn't be accepted - kept on this device**. Manual retry preserves attempt history. Conflicted and rejected evidence is retained.
+
+This remains a synthetic, loopback-only learning build. It has no authentication, production authorization, real field data, deployment, photo capture, service worker, background delivery guarantee, or milestone 3 conflict-resolution UI.
 
 ## Architecture
 
 ```text
-React interaction
-    -> Redux Toolkit reducer and revision
-    -> RTK listener middleware
-    -> IndexedDB transaction
-    -> committed revision reflected in the UI
+React intent
+    -> Redux projection
+    -> RTK listener
+    -> IndexedDB inspection + outbox transactions
+    -> foreground claim / lease coordinator
+    -> exact JSON transport
+    -> .NET 10 validation
+    -> SQLite inspection + idempotency ledger transaction
+    -> claim-correlated IndexedDB response transaction
+    -> Redux delivery projection
 ```
 
-React components own rendering and user intent. Redux owns the working inspection and durability state. Listener middleware debounces and coalesces persistence work, while the IndexedDB adapter owns schema and transaction details. The Web Locks API prevents two tabs from editing the same local database concurrently.
+React components render selectors and dispatch intent. Redux owns only the current in-memory projection. IndexedDB is the authoritative committed local snapshot and durable outbox. The sync coordinator owns orchestration, not durable state. SQLite owns the acknowledged server version and operation ledger.
 
 ## Technology
 
 | Area | Technology |
 |---|---|
-| UI | React 19, React DOM, TypeScript in strict mode |
-| State | Redux Toolkit, React Redux, listener middleware |
-| Local durability | Raw IndexedDB and the Web Locks API |
-| Development and builds | Vite 7, ES modules, ES2022 |
-| Unit and component tests | Vitest, React Testing Library, jsdom |
-| Browser acceptance tests | Playwright with Chromium |
+| UI | React 19, React DOM, strict TypeScript |
+| Client state and effects | Redux Toolkit, React Redux, listener middleware |
+| Local durability | Raw IndexedDB and Web Locks |
+| Client development | Vite 7 |
+| Client tests | Vitest, React Testing Library, Playwright Chromium |
+| API | .NET 10 minimal API |
+| Server durability | Microsoft.Data.Sqlite and SQLite WAL |
+| Server tests | NUnit, NSubstitute, and ASP.NET Core in-memory hosting |
 
-## Getting started
+## Run locally
 
-Prerequisites: Node.js `^20.19.0` or `>=22.12.0`, npm, and a current Chrome or Edge browser.
+Prerequisites: Node.js `^20.19.0` or `>=22.12.0`, npm, the .NET 10 SDK, and current Chrome or Edge.
+
+Start the API:
+
+```powershell
+dotnet run --project server/Sitepad.Api/Sitepad.Api.csproj
+```
+
+Start the client in another terminal:
 
 ```powershell
 npm --prefix client ci
 npm --prefix client run dev
 ```
 
-The development server runs at `http://127.0.0.1:4173`.
+The client runs at `http://127.0.0.1:4173`; the API binds to `http://127.0.0.1:5079`. The API grants CORS only to that exact Vite origin. Override the client endpoint at build time with `VITE_SITEPAD_API_URL`.
 
 ## Verification
 
@@ -48,20 +73,25 @@ The development server runs at `http://127.0.0.1:4173`.
 npm --prefix client test -- --run
 npm --prefix client run test:e2e
 npm --prefix client run build
+dotnet test server/Sitepad.Api.Tests/Sitepad.Api.Tests.csproj
+dotnet list server/Sitepad.Api/Sitepad.Api.csproj package --vulnerable --include-transitive
 ```
+
+## Development diagnostics
+
+Development builds expose a **Learning trace** with payload-safe completion, claim, send, retry, acknowledgement, conflict, rejection, stale-response, and recovery events. Fault controls can fail the next draft write, send, or local response transaction. They are removed from the production client bundle.
+
+The development API accepts the synthetic `X-Sitepad-Fault: reject` control and exposes an explicitly confirmed synthetic-database reset. Neither control is mapped in a production environment. Application logs contain operation metadata, timings, outcomes, and stable codes; they do not contain notes, snapshots, request or response bodies, or binary content.
 
 ## Repository layout
 
-- `client/src/features/inspection/` contains the inspection UI, types, and Redux slice.
-- `client/src/app/` contains application bootstrap and persistence orchestration.
-- `client/src/storage/` contains the IndexedDB adapter, edit lock, and development fault boundaries.
-- `client/tests/e2e/` contains browser-level durability and lifecycle proofs.
-- `docs/` contains the product design, wireframes, milestone plan, and evidence packets.
+- `client/src/features/inspection/` - inspection UI, domain types, Redux slice, and selectors.
+- `client/src/app/` - bootstrap, persistence listener, completion orchestration, and sync coordinator.
+- `client/src/storage/` - IndexedDB transactions, edit lock, and development fault boundaries.
+- `client/src/sync/` - transport and strict terminal-response validation.
+- `client/tests/e2e/` - real-browser durability, completion, claim, retry, and recovery proofs.
+- `server/Sitepad.Api/` - validated sync endpoint and SQLite ledger.
+- `server/Sitepad.Api.Tests/` - validation, HTTP, idempotency, CORS, logging, and concurrency proofs.
+- `docs/work/` - reviewed plan and milestone evidence packets.
 
-For more detail, see the [initial implementation plan](docs/work/20260903-initial-work.md), [UI/UX design](docs/design-v0.1.md), and [Milestone 1 evidence](docs/work/20260903-milestone-1-evidence.md).
-
-## Diagnostics
-
-Development builds log payload-safe lifecycle events to the browser console with the `[sitepad]` prefix. Events include action names, inspection IDs, revisions, durations, outcomes, and stable error codes; inspection values and notes are deliberately excluded.
-
-The default development level is `debug`. Override it for the current page with `?log=info`, `?log=warn`, `?log=error`, or `?log=silent`. Production defaults to `warn` and does not accept the query-string override.
+See the [initial implementation plan](docs/work/20260903-initial-work.md), [UI/UX design](docs/design-v0.1.md), [Milestone 1 evidence](docs/work/20260903-milestone-1-evidence.md), and [Milestone 2 evidence](docs/work/20260903-milestone-2-evidence.md).

@@ -1,7 +1,15 @@
 import { useAppDispatch, useAppSelector } from '../../app/store'
 import { inspectionActions, selectEvents } from './inspectionSlice'
 
-export function DeveloperDrawer({ onFailNextWrite }: { onFailNextWrite: () => void }) {
+export function DeveloperDrawer({
+  onFailNextWrite,
+  onFailNextSend,
+  onFailNextResponseWrite,
+}: {
+  onFailNextWrite: () => void
+  onFailNextSend?: () => void
+  onFailNextResponseWrite?: () => void
+}) {
   const dispatch = useAppDispatch()
   const events = useAppSelector(selectEvents)
 
@@ -16,6 +24,16 @@ export function DeveloperDrawer({ onFailNextWrite }: { onFailNextWrite: () => vo
         <button type="button" onClick={onFailNextWrite}>
           Fail next write
         </button>
+        {onFailNextSend && (
+          <button type="button" onClick={onFailNextSend}>
+            Fail next send
+          </button>
+        )}
+        {onFailNextResponseWrite && (
+          <button type="button" onClick={onFailNextResponseWrite}>
+            Fail next response write
+          </button>
+        )}
         <button type="button" onClick={() => dispatch(inspectionActions.diagnosticsCleared())}>
           Clear trace
         </button>
@@ -26,6 +44,7 @@ export function DeveloperDrawer({ onFailNextWrite }: { onFailNextWrite: () => vo
             <span>{event.source}</span>
             <strong>{event.event}</strong>
             {event.revision !== undefined && <code>r{event.revision}</code>}
+            {event.operationId && <code>{event.operationId}</code>}
             {event.code && <code>{event.code}</code>}
           </li>
         ))}

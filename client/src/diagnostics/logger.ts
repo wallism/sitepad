@@ -1,14 +1,19 @@
 export interface DiagnosticContext {
   actionType?: string
+  attemptCount?: number
+  claimId?: string | null
   code?: string
   currentRevision?: number
   databaseName?: string
   debounceMilliseconds?: number
   durableRevision?: number
+  deliveryStatus?: string
   durationMilliseconds?: number
   fromVersion?: number
   inspectionId?: string
   lockName?: string
+  nextAttemptAt?: number
+  operationId?: string
   outcome?: string
   pendingRevision?: number
   reason?: string

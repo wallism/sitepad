@@ -2,19 +2,16 @@ import { act } from '@testing-library/react'
 import { createAppStore } from './store'
 import { cloneInspection, fixtureInspection } from '../features/inspection/fixture'
 import { inspectionActions, selectDurabilityStatus } from '../features/inspection/inspectionSlice'
-import type { InspectionSnapshot, InspectionStorage, StorageResult } from '../features/inspection/inspectionTypes'
+import type { InspectionSnapshot, StorageResult } from '../features/inspection/inspectionTypes'
+import { FakeStorage } from '../test/fakes'
 
-class ControlledStorage implements InspectionStorage {
+class ControlledStorage extends FakeStorage {
   writes: Array<{
     snapshot: InspectionSnapshot
     finish: (result: StorageResult) => void
   }> = []
 
-  hydrate = async () => ({ kind: 'hydrated' as const, inspection: cloneInspection(fixtureInspection) })
-  close() {}
-  setVersionChangeHandler() {}
-
-  persist(snapshot: InspectionSnapshot) {
+  override persist(snapshot: InspectionSnapshot) {
     return new Promise<StorageResult>((resolve) => {
       this.writes.push({ snapshot: cloneInspection(snapshot), finish: resolve })
     })

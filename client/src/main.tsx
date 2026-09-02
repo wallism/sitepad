@@ -7,6 +7,7 @@ import { inspectionActions } from './features/inspection/inspectionSlice'
 import { IndexedDbInspectionStorage } from './storage/indexedDbInspectionStorage'
 import { DevInspectionStorageFaults } from './storage/inspectionStorageFaults'
 import { WebEditLock } from './storage/webEditLock'
+import { DevSyncTransport, FetchSyncTransport } from './sync/syncTransport'
 import './styles.css'
 
 const parameters = new URLSearchParams(globalThis.location.search)
@@ -25,7 +26,9 @@ const faults = import.meta.env.DEV
   : undefined
 const storage = new IndexedDbInspectionStorage({ databaseName, faults, logger })
 const editLock = new WebEditLock(`sitepad-editor:${databaseName}`)
-const app = createAppStore({ storage, logger })
+const baseTransport = new FetchSyncTransport(import.meta.env.VITE_SITEPAD_API_URL)
+const devTransport = import.meta.env.DEV ? new DevSyncTransport(baseTransport) : undefined
+const app = createAppStore({ storage, transport: devTransport ?? baseTransport, logger })
 
 if (import.meta.env.DEV) {
   let closeBlockingConnection: (() => void) | undefined
@@ -34,6 +37,12 @@ if (import.meta.env.DEV) {
     setWriteDelay: (milliseconds) => faults!.setWriteDelay(milliseconds),
     getTrace: () => ({ redux: [...app.actionTrace], indexedDb: [...storage.getDiagnostics()] }),
     readCommitted: () => storage.readCommitted(),
+    readOutbox: () => storage.readOutboxForTest(),
+    failNextSend: () => devTransport!.failNextSend(),
+    failNextResponseWrite: () => faults!.injectNextOperationUpdateFailure(),
+    requestSync: () => app.store.dispatch(inspectionActions.syncRequested()),
+    claimNext: (now, claimId, leaseMilliseconds) => storage.claimNext(now, claimId, leaseMilliseconds),
+    recordTerminal: (operationId, claimId, response) => storage.recordTerminal(operationId, claimId, response),
     openBlockingConnection: async () => {
       closeBlockingConnection = await storage.openBlockingConnectionForTest()
     },
@@ -55,6 +64,8 @@ createRoot(document.getElementById('root')!).render(
       editLock={editLock}
       logger={logger}
       onFailNextWrite={import.meta.env.DEV ? () => faults!.injectNextWriteFailure() : undefined}
+      onFailNextSend={import.meta.env.DEV ? () => devTransport!.failNextSend() : undefined}
+      onFailNextResponseWrite={import.meta.env.DEV ? () => faults!.injectNextOperationUpdateFailure() : undefined}
     />
   </Provider>,
 )

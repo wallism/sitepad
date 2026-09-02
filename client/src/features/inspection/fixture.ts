@@ -7,6 +7,7 @@ export const fixtureInspection: InspectionSnapshot = {
   lifecycle: 'in_progress',
   localRevision: 0,
   baseVersion: 1,
+  baseSnapshot: { result: 'unanswered', note: '' },
   activeOperationId: null,
   lastStorageDiagnostic: null,
   items: [
@@ -19,6 +20,7 @@ export const fixtureInspection: InspectionSnapshot = {
 export function cloneInspection(snapshot: InspectionSnapshot): InspectionSnapshot {
   return {
     ...snapshot,
+    baseSnapshot: { ...snapshot.baseSnapshot },
     items: snapshot.items.map((item) => ({ ...item })),
   }
 }

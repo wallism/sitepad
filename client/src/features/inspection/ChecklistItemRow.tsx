@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { useAppDispatch, useAppSelector } from '../../app/store'
-import { inspectionActions } from './inspectionSlice'
+import { inspectionActions, selectCanEdit } from './inspectionSlice'
 import type { InspectionResult } from './inspectionTypes'
 
 const resultOptions: Array<{ value: InspectionResult; label: string }> = [
@@ -14,7 +14,7 @@ export const ChecklistItemRow = memo(function ChecklistItemRow({ itemId }: { ite
   const item = useAppSelector((state) =>
     state.inspection.inspection?.items.find((candidate) => candidate.itemId === itemId),
   )
-  const canEdit = useAppSelector((state) => state.inspection.hydration === 'ready')
+  const canEdit = useAppSelector(selectCanEdit)
 
   if (!item) return null
 

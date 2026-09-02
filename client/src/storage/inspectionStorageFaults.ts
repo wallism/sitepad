@@ -1,12 +1,14 @@
 export interface InspectionStorageFaultBoundary {
   consumeOpenFailure(): boolean
   consumeWriteFailure(): boolean
+  consumeOperationUpdateFailure(): boolean
   waitBeforeWrite(): Promise<void>
 }
 
 export class DevInspectionStorageFaults implements InspectionStorageFaultBoundary {
   private failOpen = false
   private failWrite = false
+  private failOperationUpdate = false
   private writeDelayMilliseconds = 0
 
   constructor({ failFirstOpen = false }: { failFirstOpen?: boolean } = {}) {
@@ -19,6 +21,10 @@ export class DevInspectionStorageFaults implements InspectionStorageFaultBoundar
 
   injectNextOpenFailure() {
     this.failOpen = true
+  }
+
+  injectNextOperationUpdateFailure() {
+    this.failOperationUpdate = true
   }
 
   setWriteDelay(milliseconds: number) {
@@ -34,6 +40,12 @@ export class DevInspectionStorageFaults implements InspectionStorageFaultBoundar
   consumeWriteFailure() {
     const fail = this.failWrite
     this.failWrite = false
+    return fail
+  }
+
+  consumeOperationUpdateFailure() {
+    const fail = this.failOperationUpdate
+    this.failOperationUpdate = false
     return fail
   }
 
