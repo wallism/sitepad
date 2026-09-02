@@ -16,3 +16,11 @@ Key routing rules:
 - Save progress → invoke /context-save
 - Resume context → invoke /context-restore
 - Author a backlog-ready spec/issue → invoke /spec
+
+Repository best-practice routing:
+- React components and hooks → invoke /sitepad-react
+- Redux Toolkit state, selectors, listeners, or side effects → invoke /sitepad-redux
+- IndexedDB schema, transactions, migrations, or storage durability → invoke /sitepad-indexeddb
+- C# or .NET implementation → invoke /sitepad-dotnet
+- React UI unit or component tests → invoke /sitepad-react-unit-tests
+- C# unit tests → invoke /sitepad-dotnet-unit-tests
