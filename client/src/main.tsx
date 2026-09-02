@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { Provider } from 'react-redux'
 import { App } from './App'
 import { createAppStore } from './app/store'
+import { ConsoleAppLogger } from './diagnostics/logger'
 import { inspectionActions } from './features/inspection/inspectionSlice'
 import { IndexedDbInspectionStorage } from './storage/indexedDbInspectionStorage'
 import { DevInspectionStorageFaults } from './storage/inspectionStorageFaults'
@@ -9,15 +10,16 @@ import { WebEditLock } from './storage/webEditLock'
 import './styles.css'
 
 const parameters = new URLSearchParams(globalThis.location.search)
+const logger = new ConsoleAppLogger(import.meta.env.DEV)
 const databaseName = import.meta.env.DEV && parameters.get('db')
   ? `sitepad-${parameters.get('db')}`
   : 'sitepad-local-v1'
 const faults = import.meta.env.DEV
   ? new DevInspectionStorageFaults({ failFirstOpen: parameters.get('failOpenOnce') === '1' })
   : undefined
-const storage = new IndexedDbInspectionStorage({ databaseName, faults })
+const storage = new IndexedDbInspectionStorage({ databaseName, faults, logger })
 const editLock = new WebEditLock(`sitepad-editor:${databaseName}`)
-const app = createAppStore({ storage })
+const app = createAppStore({ storage, logger })
 
 if (import.meta.env.DEV) {
   let closeBlockingConnection: (() => void) | undefined
@@ -45,6 +47,7 @@ createRoot(document.getElementById('root')!).render(
       store={app.store}
       storage={storage}
       editLock={editLock}
+      logger={logger}
       onFailNextWrite={import.meta.env.DEV ? () => faults!.injectNextWriteFailure() : undefined}
     />
   </Provider>,

@@ -172,3 +172,24 @@ test('versionchange closes the app connection and a blocked upgrade stays read-o
   ]))
   await page.evaluate(() => globalThis.__SITEPAD_TEST__.closeBlockingConnection())
 })
+
+test('browser diagnostics are useful without exposing inspection values', async ({ page }, testInfo) => {
+  const marker = 'PRIVATE-BROWSER-NOTE-3b81'
+  const messages: string[] = []
+  page.on('console', (message) => {
+    if (message.text().startsWith('[sitepad]')) messages.push(message.text())
+  })
+  await page.goto(databaseUrl(testInfo))
+  await expectReady(page)
+
+  await firstItem(page).getByRole('button', { name: 'Fail' }).click()
+  await firstItem(page).getByRole('textbox', { name: 'Failure note' }).fill(marker)
+  await openLearningTrace(page)
+  await page.getByRole('button', { name: 'Flush now' }).click()
+  await expect(page.getByRole('status')).toContainText('On this device')
+
+  await expect.poll(() => messages.some((message) => message.includes('app.edit_lock_acquired'))).toBe(true)
+  await expect.poll(() => messages.some((message) => message.includes('storage.transaction_committed'))).toBe(true)
+  expect(messages.some((message) => message.includes('persistence.flush_requested'))).toBe(true)
+  expect(messages.join('\n')).not.toContain(marker)
+})

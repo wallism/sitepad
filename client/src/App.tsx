@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { noopLogger, type AppLogger } from './diagnostics/logger'
 import { bootstrapSitepad } from './app/bootstrap'
 import { useAppDispatch, useAppSelector, type AppStore } from './app/store'
 import { InspectionScreen } from './features/inspection/InspectionScreen'
@@ -13,15 +14,19 @@ interface AppProps {
   store: AppStore
   storage: InspectionStorage
   editLock: EditLock
+  logger?: AppLogger
   onFailNextWrite?: () => void
 }
 
-export function App({ store, storage, editLock, onFailNextWrite }: AppProps) {
+export function App({ store, storage, editLock, logger = noopLogger, onFailNextWrite }: AppProps) {
   const dispatch = useAppDispatch()
   const hydration = useAppSelector(selectHydration)
   const status = useAppSelector(selectDurabilityStatus)
 
-  useEffect(() => bootstrapSitepad(store, storage, editLock), [editLock, storage, store])
+  useEffect(
+    () => bootstrapSitepad(store, storage, editLock, logger),
+    [editLock, logger, storage, store],
+  )
 
   useEffect(() => {
     const flushWhenHidden = () => {
