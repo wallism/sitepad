@@ -20,14 +20,14 @@ The learning problem is not how to draw six mobile screens. It is how to make on
 
 ## What Makes This Cool
 
-The interface looks simple while the system underneath is doing difficult work. A single **Fail** tap can teach:
+The interface looks simple while the system underneath is doing difficult work. One **Fail → Complete** path can teach:
 
 1. immediate React rendering;
 2. a serializable Redux action and reducer transition;
 3. a Redux listener coordinating an asynchronous write;
 4. an IndexedDB transaction becoming durable;
 5. an outbox surviving reload and lost connectivity;
-6. an API acknowledgement or conflict returning through the same path.
+6. an API acknowledgement or conflict returning after completion through the same path.
 
 That is a better learning loop than six mostly independent screens.
 
@@ -180,6 +180,21 @@ This makes Redux DevTools, IndexedDB, and the visible interface tell the same st
 - **API:** one .NET minimal endpoint backed by a tiny SQLite operation ledger. Production server architecture is out of scope.
 - **Phone testing:** deferred until desktop Milestones 1–3 pass. HTTPS certificates, LAN reachability, binding, and CORS are separate setup work.
 
+## Implementation Baseline
+
+| Layer | v0.1 choice |
+|---|---|
+| Client | TypeScript, React, Vite, `@reduxjs/toolkit`, `react-redux` |
+| Client unit/component tests | Vitest and React Testing Library |
+| Real-browser tests | Playwright with Chromium and a persistent browser profile |
+| Server | .NET 10 minimal API and `Microsoft.Data.Sqlite` |
+| Server tests | xUnit, `Microsoft.AspNetCore.Mvc.Testing`, and a temporary SQLite database |
+| Repository layout | `client/` and `server/` at the repository root |
+| Client commands | `npm run dev`, `npm test`, `npm run test:e2e` |
+| Server commands | `dotnet run --project server/Sitepad.Api`, `dotnet test` |
+
+These are learning defaults, not claims that every production Sitepad feature belongs in one repository or process.
+
 ## Suggested Component Boundaries
 
 - **React UI:** captures intent and renders selectors. It does not own persistence or network work.
@@ -196,6 +211,7 @@ These are separate axes even when one sync bar summarizes them.
 | Axis | Transition | Owner/effect | Visible copy |
 |---|---|---|---|
 | Boot | `hydrating → ready` | IndexedDB adapter loads the working projection before editing is enabled | `Opening today’s work…` → normal screen |
+| Boot | `hydrating → hydration_error` | Database open, upgrade, or read fails without deleting existing data | `Couldn’t open this device’s work — Retry` |
 | Local durability | `durable → saving` | Reducer handles an edit; listener schedules the latest local revision | `Saving` |
 | Local durability | `saving → durable` | IndexedDB transaction completes for that revision | `On this device` |
 | Local durability | `saving → storage_error` | Transaction aborts or quota is exceeded | `Not saved — your last change needs attention` |
@@ -208,12 +224,22 @@ These are separate axes even when one sync bar summarizes them.
 
 The sync bar derives one message using this priority: `storage_error`, `conflicted/rejected`, `saving`, `sending`, `pending/retryable`, `acknowledged`. The underlying states remain independent.
 
+Each inspection tracks three revision counters:
+
+- `currentRevision`: the newest Redux working value;
+- `scheduledRevision`: the newest revision handed to the per-inspection persistence queue;
+- `durableRevision`: the newest revision confirmed by a completed IndexedDB transaction.
+
+The UI may show **On this device** only when `durableRevision === currentRevision`. **Complete** requests an immediate flush and remains disabled until those revisions match. If that flush fails, the inspection stays `in_progress`, no outbox operation is created, and the user sees `storage_error`.
+
+Editing is allowed only in `ready`. A `hydration_error` retry repeats the non-destructive open/upgrade/read path; resetting the database is a separate developer-only destructive control. v0.1 also permits one active editing tab: the primary tab holds an exclusive Web Lock, while another tab is read-only and says **Sitepad is already open in another tab**. Cross-tab editing is later work.
+
 ## IndexedDB Schema v1
 
 | Store | Key and indexes | Minimum contents |
 |---|---|---|
 | `inspections` | key `inspectionId` | lifecycle, working snapshot, base snapshot, base version, local revision, durability projection |
-| `outbox` | key `operationId`; indexes `inspectionId`, `[status, nextAttemptAt]` | self-contained base and mine snapshots, attempt count, next attempt, claim ID, lease expiry, last error |
+| `outbox` | key `operationId`; indexes `inspectionId`, `[status, nextAttemptAt]` | self-contained base and mine snapshots, predecessor operation ID, attempt count, next attempt, claim ID, lease expiry, last error |
 | `photos` | key `photoId`; index `[inspectionId, itemId]` | Milestone 4 fake blob, byte count, local state |
 | `meta` | key `name` | schema marker and last persistence/estimate observations used by the developer drawer |
 
@@ -224,15 +250,17 @@ Atomic transaction boundaries:
 - Acknowledgement/conflict/rejection: update `outbox` and its inspection projection together.
 - Resolution: update the inspection snapshots and insert the superseding operation together.
 
-Editing is disabled while hydration is incomplete. Each inspection has a single writer queue and monotonically increasing local revision, so an older debounced write cannot finish after and overwrite a newer one. Completion waits for the latest scheduled revision before opening its transaction.
+Editing is disabled unless hydration is `ready`. Each inspection has a single writer queue and monotonically increasing local revision, so an older debounced write cannot finish after and overwrite a newer one. Completion waits until the durable revision equals the current revision before opening its transaction.
 
 ## Sync Claim and Recovery
 
 Every trigger dispatches the same `syncRequested` intent. One in-page coordinator holds a runtime mutex, then claims an eligible operation inside IndexedDB by changing `pending/retryable → sending` and writing a claim ID plus a 30-second lease.
 
-On startup, an expired `sending` lease returns to `pending`. This covers a tab closing during a request. Operations for one inspection remain sequential; a second fixture inspection may progress independently.
+On startup and each coordinator pass, an expired `sending` lease returns to `pending`. This covers a tab closing during a request. v0.1 permits only one nonterminal operation per inspection, so it needs no per-inspection sequence counter; a resolution names the conflicted operation as its predecessor. A second fixture inspection may progress independently.
 
-Retry delays in the learning build are 1, 2, 4, 8, 16, then 30 seconds, driven by an injectable clock. After five failures the UI makes the row prominent but never deletes it. Manual retry sets `nextAttemptAt` to now.
+Retry delays in the learning build are 1, 2, 4, 8, 16, then 30 seconds, driven by an injectable clock. The coordinator arms one timer for the earliest `nextAttemptAt` and recomputes it after every attempt, foreground event, successful reachability probe, and manual retry. After five failures the UI makes the row prominent but never deletes it. Manual retry sets `nextAttemptAt` to now.
+
+A response may update local state only when both its `operationId` and `claimId` still match the sending record. A late completion from an expired claim is ignored. The visible terminal state is not changed until the response is committed to IndexedDB. If the server succeeds but that local response transaction fails, the operation stays `sending`; lease recovery resends the same operation ID and obtains the server’s stored acknowledgement, conflict, or rejection.
 
 ## Minimal API Contract
 
@@ -251,7 +279,12 @@ Request:
 Responses:
 
 ```json
-{ "kind": "acknowledged", "operationId": "op-123", "serverVersion": 5 }
+{
+  "kind": "acknowledged",
+  "operationId": "op-123",
+  "serverVersion": 5,
+  "server": { "result": "fail", "note": "Loose at top" }
+}
 ```
 
 ```json
@@ -267,7 +300,24 @@ Responses:
 { "kind": "rejected", "operationId": "op-123", "code": "inspection_closed", "message": "The office closed this inspection." }
 ```
 
-The SQLite operation ledger has a unique constraint on `operationId` and stores the completed response. A duplicate request returns the original response without applying the mutation again. If the client crashes after the server commits but before the acknowledgement is stored locally, retry obtains that same response.
+The endpoint executes this ordered algorithm:
+
+1. Compute a deterministic fingerprint of the mutation payload.
+2. Look up `operationId` in the ledger.
+3. If it exists with the same fingerprint, return its stored terminal response.
+4. If it exists with a different fingerprint, reject the request as operation-ID reuse.
+5. Load the inspection and apply any deterministic rejection fixture.
+6. Compare `baseVersion`; return and store a conflict response when it is stale.
+7. Apply the mutation, increment the version, and atomically store the fingerprint and terminal response with the record mutation.
+
+SQLite enforces the unique `operationId`. The record mutation, version increment, request fingerprint, and terminal response are one database transaction. If the client closes after the server commits but before the response is stored locally, retry obtains the same response without applying the mutation again.
+
+Client projections follow equally explicit rules:
+
+- **Acknowledged:** atomically replace Base and Working with the canonical `server` snapshot, update `baseVersion`, and mark the operation acknowledged.
+- **Conflict:** preserve Base and Mine, store Server, and mark the operation conflicted.
+- **Resolved:** set Base to the received Server snapshot, set Mine to the chosen merged result, and create one new operation naming the conflicted predecessor.
+- **Rejected:** preserve all evidence and expose it read-only; amendment and export are later milestones.
 
 ## Restricted Three-Way Merge
 
@@ -288,12 +338,13 @@ This is enough to teach the merge without inventing a general collaborative-edit
 
 - One inspection with three checklist items and a note.
 - React intent, Redux reducer update, listener persistence, and raw IndexedDB rehydration.
-- `hydrating`, `saving`, `durable`, and `storage_error` behavior.
-- Serialized/debounced note writes and completion flush logic, without networking.
+- `hydrating`, `hydration_error`, `saving`, `durable`, and `storage_error` behavior.
+- Serialized/debounced note writes and a developer-only **Flush now** control, without **Complete** or networking.
+- One-tab edit lock with a read-only secondary-tab state.
 
 ### Milestone 2 — Durable delivery
 
-- **Complete** atomically creates one self-contained outbox operation.
+- Introduce **Complete**; it waits for the latest durable revision and atomically creates one self-contained outbox operation.
 - One .NET endpoint plus SQLite idempotency ledger.
 - Atomic claim, retry classification, acknowledgement persistence, definite rejection, and recovery of an expired claim.
 
@@ -309,6 +360,7 @@ This is enough to teach the merge without inventing a general collaborative-edit
 - Real `navigator.storage.persist()` and `navigator.storage.estimate()` checks.
 - Scenarios for persistence granted, persistence denied, and estimate unavailable.
 - Adapter-injected `QuotaExceededError` plus one deterministic fake photo blob.
+- One manual check records the real browser’s `persist()` and `estimate()` outcomes; automated tests use injected boundaries rather than pretending those browser decisions are deterministic.
 - Existing work survives every injected storage failure.
 
 ### Later product work
@@ -318,6 +370,7 @@ This is enough to teach the merge without inventing a general collaborative-edit
 - Authentication and offline token expiry.
 - Service-worker app-shell caching and optional Background Sync.
 - GPS, signatures, markup, multi-device use, and production deployment.
+- Amendment or export of rejected operations.
 
 ## Failure Matrix
 
@@ -325,9 +378,10 @@ This is enough to teach the merge without inventing a general collaborative-edit
 |---|---|---|---|
 | Network error, timeout, `408`, `429`, `5xx` | `retryable` | Backoff and retry while open | Optional **Retry now** |
 | `409` with server snapshot | `conflicted` | No retry until resolved | Choose each true collision |
-| Definite `400`, `403`, `422` | `rejected` | Retain operation and evidence | Review message; amend or export later |
+| Definite `400`, `403`, `422` | `rejected` | Retain operation and evidence read-only | Review message; amendment/export is later work |
 | IndexedDB abort or quota failure | `storage_error` | Preserve last committed revision | Retry write; photo scenario may continue without the new photo |
-| Duplicate operation ID | Original terminal response | Server returns stored result | None |
+| Duplicate operation ID with the same fingerprint | Preserve the stored `acknowledged`, `conflicted`, or `rejected` result | Server returns stored result | None |
+| Duplicate operation ID with a different fingerprint | `rejected` | Server refuses operation-ID reuse | Correct the client defect; evidence remains local |
 
 There is no discard transition.
 
@@ -337,18 +391,23 @@ There is no discard transition.
 |---|---|
 | A result tap updates only its React row | React render test and profiler observation |
 | Editing is blocked until hydration completes | Browser integration test using real IndexedDB |
+| Database open, upgrade, or read failure shows `hydration_error`; retry does not erase records | IndexedDB adapter and browser integration tests |
 | **Saving** remains until transaction completion; failure never shows **On this device** | Listener/adapter integration test with delayed and rejected writes |
+| **On this device** appears only when `durableRevision === currentRevision` | Selector and listener integration tests |
 | An older debounced note write cannot overwrite a newer revision | Listener integration test with controlled completion order |
-| Closing and reopening the browser site after **On this device** restores the exact values | Chromium browser test |
+| Closing and reopening the browser after **On this device** restores the exact values | Playwright Chromium test using a persistent browser context |
+| A secondary tab is read-only while the first tab holds the edit lock | Playwright two-page browser test |
 | **Complete** waits for the latest draft and atomically creates one operation | IndexedDB transaction integration test |
 | The outbox operation survives a tab close and reopen | Chromium browser test |
 | Two simultaneous sync triggers result in one claimed request | Sync coordinator integration test |
+| A stale claim response cannot overwrite the current operation state | Sync coordinator integration test with controlled responses |
 | Lost acknowledgement plus retry does not duplicate the server mutation | .NET/SQLite integration test |
+| Server terminal response plus local persistence failure replays the same operation and stores the same acknowledgement, conflict, or rejection | Transport/IndexedDB integration tests |
 | Retryable and definite-rejection responses produce the documented states without deleting evidence | Transport and browser integration tests |
 | The restricted merge follows all four Base/Mine/Server rules | Pure merge unit tests |
 | A genuine collision has no preselected choice | Resolve component test |
 | One conflicted inspection does not block the second fixture inspection | Sync integration test |
-| Persistence granted, denied, and estimate unavailable are all visible in the developer drawer | Chromium browser scenarios with injected result boundaries |
+| Persistence granted, denied, and estimate unavailable are all visible in the developer drawer | Chromium browser scenarios with injected boundaries plus one recorded manual real-browser check |
 | Injected `QuotaExceededError` preserves the previous revision and rejects only the new fake photo | IndexedDB adapter integration test |
 
 Use reducer unit tests for state transitions, real-browser integration tests for IndexedDB and lifecycle behavior, .NET integration tests for the operation ledger, and a small Playwright scenario suite for the visible end-to-end proofs. Do not rely on a mocked IndexedDB implementation for the durability demonstrations.
@@ -361,13 +420,13 @@ Do not add installability or Background Sync until the foreground flow passes ev
 
 ## Open Questions
 
-There are no blocking design questions for Milestones 1–4. Cross-browser support, real media capture, production authentication, and deployment remain deliberate later decisions.
+There are no blocking design questions for Milestones 1–4. Cross-browser support, real media capture, rejected-operation amendment/export, production authentication, and deployment remain deliberate later decisions.
 
 ## The Assignment
 
 Milestone 1 is the assignment. Before adding networking or another product screen, build the smallest proof of the durability boundary:
 
-> One **Fail** toggle must travel React → Redux → IndexedDB. Show **Saving** until the transaction completes, then **On device**. Close the app, reopen it, and verify the value returns. Repeat once with an injected write failure and confirm the UI never claims the failed change is safe.
+> One **Fail** toggle must travel React → Redux → IndexedDB. Show **Saving** until the transaction completes, then **On device**. Close the tab or browser, reopen the site in the same Playwright profile, and verify the value returns. Repeat once with an injected write failure and confirm the UI never claims the failed change is safe.
 
 Record the Redux actions and IndexedDB result for both runs. That proof determines whether the rest of the architecture is real.
 
