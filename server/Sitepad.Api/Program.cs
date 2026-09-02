@@ -2,9 +2,36 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Net.Http.Headers;
+using Serilog;
 using Sitepad.Api;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddSerilog((services, loggerConfiguration) =>
+{
+    var configuration = services.GetRequiredService<IConfiguration>();
+    var environment = services.GetRequiredService<IHostEnvironment>();
+    var configuredLogFilePath = configuration["Sitepad:LogFilePath"];
+    if (string.IsNullOrWhiteSpace(configuredLogFilePath))
+    {
+        throw new InvalidOperationException("Sitepad:LogFilePath must be configured.");
+    }
+
+    var logFilePath = Path.IsPathRooted(configuredLogFilePath)
+        ? Path.GetFullPath(configuredLogFilePath)
+        : Path.GetFullPath(configuredLogFilePath, environment.ContentRootPath);
+
+    loggerConfiguration
+        .ReadFrom.Configuration(configuration)
+        .ReadFrom.Services(services)
+        .WriteTo.File(
+            logFilePath,
+            rollingInterval: RollingInterval.Day,
+            rollOnFileSizeLimit: true,
+            fileSizeLimitBytes: 10 * 1024 * 1024,
+            retainedFileCountLimit: 14,
+            shared: true);
+});
 
 builder.WebHost.ConfigureKestrel(options =>
 {
@@ -31,6 +58,7 @@ if (string.IsNullOrWhiteSpace(builder.Configuration["urls"])
     app.Urls.Add("http://127.0.0.1:5079");
 }
 
+app.UseSerilogRequestLogging();
 app.UseCors("sitepad-client");
 
 app.MapPost("/api/sync", async (

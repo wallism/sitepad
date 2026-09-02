@@ -2,17 +2,19 @@
 
 Sitepad is an offline-first inspection application for field work where connectivity is unreliable. It is also a focused learning build for React, Redux Toolkit, IndexedDB, idempotent delivery, and SQLite. Each milestone proves one durability or delivery boundary before adding more product scope.
 
-## Current scope
+## Current status
 
-Milestone 2 delivers one synthetic inspection from local editing through durable foreground delivery:
+Milestone 2 was completed on 2026-09-03. It delivers one synthetic inspection from local editing through durable foreground delivery. Milestone 3 conflict resolution has not started.
 
-1. React dispatches checklist intent.
-2. Redux immediately projects the new revision.
-3. An RTK listener commits the revision to IndexedDB.
-4. The first **Complete & queue to send** freezes editing, flushes the captured revision, and atomically creates one self-contained outbox operation.
-5. The foreground coordinator claims that operation with a 30-second lease and sends its exact stored JSON representation.
-6. The .NET API applies the operation once through a SQLite idempotency ledger.
-7. The client commits the claim-correlated response to IndexedDB before showing a terminal delivery state.
+### Milestone 2 changes
+
+- **Completion boundary:** the first **Complete & queue to send** freezes editing, flushes the captured revision, and atomically creates one self-contained outbox operation. Duplicate clicks do not create duplicate operations.
+- **Durable outbox:** operations and their exact JSON requests survive reloads in IndexedDB. Claims use 30-second leases so interrupted sends can be recovered safely.
+- **Foreground synchronization:** app start, foreground, connectivity, and manual retry signals enter one coordinator with an in-page mutex, retry scheduling, stale-response protection, and claim-correlated persistence.
+- **Idempotent API:** the .NET endpoint validates a closed request schema and uses a SQLite operation ledger to replay duplicate requests without applying a mutation twice.
+- **Explicit outcomes:** acknowledgements, conflicts, retryable failures, protocol errors, and definite rejections are stored and projected without deleting local evidence.
+- **Development diagnostics:** payload-safe lifecycle events and injected write, send, response-write, and API-rejection failures make recovery behavior observable.
+- **Verification:** unit, hosted API, SQLite concurrency, and real Chromium tests cover the Milestone 2 delivery gates. See the [Milestone 2 evidence packet](docs/work/20260903-milestone-2-evidence.md).
 
 The UI can show **On this device**, **Finishing on this device**, **Waiting to send**, **Sending**, **Couldn't send - will retry**, **Sent**, **Needs your call**, or **Couldn't be accepted - kept on this device**. Manual retry preserves attempt history. Conflicted and rejected evidence is retained.
 
@@ -46,6 +48,7 @@ React components render selectors and dispatch intent. Redux owns only the curre
 | Client tests | Vitest, React Testing Library, Playwright Chromium |
 | API | .NET 10 minimal API |
 | Server durability | Microsoft.Data.Sqlite and SQLite WAL |
+| API logging | Serilog with Console, Debug, and rolling File sinks |
 | Server tests | NUnit, NSubstitute, and ASP.NET Core in-memory hosting |
 
 ## Run locally
@@ -58,10 +61,15 @@ Start the API:
 dotnet run --project server/Sitepad.Api/Sitepad.Api.csproj
 ```
 
-Start the client in another terminal:
+Install client dependencies once, with the frontend stopped:
 
 ```powershell
 npm --prefix client ci
+```
+
+Start the client in another terminal:
+
+```powershell
 npm --prefix client run dev
 ```
 
@@ -81,7 +89,29 @@ dotnet list server/Sitepad.Api/Sitepad.Api.csproj package --vulnerable --include
 
 Development builds expose a **Learning trace** with payload-safe completion, claim, send, retry, acknowledgement, conflict, rejection, stale-response, and recovery events. Fault controls can fail the next draft write, send, or local response transaction. They are removed from the production client bundle.
 
-The development API accepts the synthetic `X-Sitepad-Fault: reject` control and exposes an explicitly confirmed synthetic-database reset. Neither control is mapped in a production environment. Application logs contain operation metadata, timings, outcomes, and stable codes; they do not contain notes, snapshots, request or response bodies, or binary content.
+The development API accepts the synthetic `X-Sitepad-Fault: reject` control and exposes an explicitly confirmed synthetic-database reset. Neither control is mapped in a production environment.
+
+## API logging
+
+The API routes ASP.NET Core and application `ILogger` events through Serilog:
+
+- **Console:** writes to the terminal running `dotnet run`.
+- **Debug:** writes to the Visual Studio Debug output when a debugger is attached.
+- **File:** writes daily rolling text files, rolls again at 10 MiB, and retains the latest 14 files.
+
+The default file location is configured in `server/Sitepad.Api/appsettings.json`:
+
+```json
+{
+  "Sitepad": {
+    "LogFilePath": "logs/sitepad-.log"
+  }
+}
+```
+
+Relative paths resolve from `server/Sitepad.Api`, so the default produces files such as `server/Sitepad.Api/logs/sitepad-20260903.log`. An absolute path is also accepted. Override the setting without editing the file by setting the `Sitepad__LogFilePath` environment variable before starting the API.
+
+Logs contain operation IDs, request timings, outcomes, and stable error codes. They do not contain notes, snapshots, request or response bodies, or binary content. The server integration test writes through the configured File sink and verifies that a marker note is absent.
 
 ## Repository layout
 

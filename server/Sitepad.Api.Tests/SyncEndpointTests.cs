@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
@@ -6,7 +5,6 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 
 namespace Sitepad.Api.Tests;
 
@@ -172,18 +170,25 @@ public sealed class SyncEndpointTests
     }
 
     [Test]
-    public async Task Logs_ExcludeInspectionPayloads()
+    public async Task Serilog_WritesPayloadSafeEventsToConfiguredFilePath()
     {
-        const string marker = "SECRET-SYNTHETIC-NOTE";
-        await using var factory = new SitepadFactory(captureLogs: true);
+        const string marker = "SECRET-FILE-SINK-NOTE";
+        var factory = new SitepadFactory();
+        var logDirectory = factory.LogDirectory;
 
-        var response = await Post(factory.CreateClient(), Request("op-log", note: marker));
+        await using (factory)
+        {
+            var response = await Post(
+                factory.CreateClient(),
+                Request("op-file-log", note: marker));
 
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-        Assert.That(string.Join("\n", factory.Logs), Does.Not.Contain(marker));
-        Assert.That(
-            factory.Logs.Any(entry => entry.Contains("op-log", StringComparison.Ordinal)),
-            Is.True);
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        }
+
+        var logFile = Directory.GetFiles(logDirectory, "sitepad-*.log").Single();
+        var log = await File.ReadAllTextAsync(logFile);
+        Assert.That(log, Does.Contain("op-file-log"));
+        Assert.That(log, Does.Not.Contain(marker));
     }
 
     [Test]
@@ -222,17 +227,14 @@ internal sealed class SitepadFactory : WebApplicationFactory<Program>
     private readonly string directory =
         Path.Combine(Path.GetTempPath(), "sitepad-tests", Guid.NewGuid().ToString("N"));
     private readonly string environment;
-    private readonly bool captureLogs;
-    private readonly ConcurrentQueue<string> logs = new();
 
-    public SitepadFactory(string environment = "Development", bool captureLogs = false)
+    public SitepadFactory(string environment = "Development")
     {
         this.environment = environment;
-        this.captureLogs = captureLogs;
         Directory.CreateDirectory(directory);
     }
 
-    public IReadOnlyCollection<string> Logs => logs.ToArray();
+    public string LogDirectory => Path.Combine(directory, "logs");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -241,33 +243,7 @@ internal sealed class SitepadFactory : WebApplicationFactory<Program>
             configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Sitepad:DatabasePath"] = Path.Combine(directory, "test.db"),
+                ["Sitepad:LogFilePath"] = Path.Combine(LogDirectory, "sitepad-.log"),
             }));
-        if (captureLogs)
-        {
-            builder.ConfigureLogging(logging =>
-            {
-                logging.ClearProviders();
-                logging.AddProvider(new CapturingLoggerProvider(logs));
-            });
-        }
     }
-}
-
-internal sealed class CapturingLoggerProvider(ConcurrentQueue<string> records) : ILoggerProvider
-{
-    public ILogger CreateLogger(string categoryName) => new CapturingLogger(records);
-    public void Dispose() { }
-}
-
-internal sealed class CapturingLogger(ConcurrentQueue<string> records) : ILogger
-{
-    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-    public bool IsEnabled(LogLevel logLevel) => true;
-    public void Log<TState>(
-        LogLevel logLevel,
-        EventId eventId,
-        TState state,
-        Exception? exception,
-        Func<TState, Exception?, string> formatter) =>
-        records.Enqueue(formatter(state, exception));
 }
