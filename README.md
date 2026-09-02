@@ -59,3 +59,9 @@ npm --prefix client run build
 - `docs/` contains the product design, wireframes, milestone plan, and evidence packets.
 
 For more detail, see the [initial implementation plan](docs/work/20260903-initial-work.md), [UI/UX design](docs/design-v0.1.md), and [Milestone 1 evidence](docs/work/20260903-milestone-1-evidence.md).
+
+## Diagnostics
+
+Development builds log payload-safe lifecycle events to the browser console with the `[sitepad]` prefix. Events include action names, inspection IDs, revisions, durations, outcomes, and stable error codes; inspection values and notes are deliberately excluded.
+
+The default development level is `debug`. Override it for the current page with `?log=info`, `?log=warn`, `?log=error`, or `?log=silent`. Production defaults to `warn` and does not accept the query-string override.

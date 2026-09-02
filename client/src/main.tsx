@@ -2,7 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { Provider } from 'react-redux'
 import { App } from './App'
 import { createAppStore } from './app/store'
-import { ConsoleAppLogger } from './diagnostics/logger'
+import { ConsoleAppLogger, isLogLevel } from './diagnostics/logger'
 import { inspectionActions } from './features/inspection/inspectionSlice'
 import { IndexedDbInspectionStorage } from './storage/indexedDbInspectionStorage'
 import { DevInspectionStorageFaults } from './storage/inspectionStorageFaults'
@@ -10,7 +10,13 @@ import { WebEditLock } from './storage/webEditLock'
 import './styles.css'
 
 const parameters = new URLSearchParams(globalThis.location.search)
-const logger = new ConsoleAppLogger(import.meta.env.DEV)
+const requestedLogLevel = parameters.get('log')
+const logger = new ConsoleAppLogger(
+  import.meta.env.DEV && isLogLevel(requestedLogLevel)
+    ? requestedLogLevel
+    : import.meta.env.DEV ? 'debug' : 'warn',
+)
+logger.info('logging.configured', { outcome: logger.getLevel() })
 const databaseName = import.meta.env.DEV && parameters.get('db')
   ? `sitepad-${parameters.get('db')}`
   : 'sitepad-local-v1'

@@ -23,6 +23,20 @@ export interface AppLogger {
   error(event: string, context?: DiagnosticContext): void
 }
 
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'silent'
+
+const logLevelPriority: Record<LogLevel, number> = {
+  debug: 0,
+  info: 1,
+  warn: 2,
+  error: 3,
+  silent: 4,
+}
+
+export function isLogLevel(value: string | null): value is LogLevel {
+  return value !== null && value in logLevelPriority
+}
+
 export const noopLogger: AppLogger = {
   debug: () => undefined,
   info: () => undefined,
@@ -31,10 +45,22 @@ export const noopLogger: AppLogger = {
 }
 
 export class ConsoleAppLogger implements AppLogger {
+  private level: LogLevel
+
   constructor(
-    private readonly enabled: boolean,
+    level: LogLevel | boolean,
     private readonly timestamp: () => string = () => new Date().toISOString(),
-  ) {}
+  ) {
+    this.level = typeof level === 'boolean' ? (level ? 'debug' : 'silent') : level
+  }
+
+  setLevel(level: LogLevel) {
+    this.level = level
+  }
+
+  getLevel() {
+    return this.level
+  }
 
   debug(event: string, context: DiagnosticContext = {}) {
     this.write('debug', event, context)
@@ -57,10 +83,16 @@ export class ConsoleAppLogger implements AppLogger {
     event: string,
     context: DiagnosticContext,
   ) {
-    if (!this.enabled) return
-    console[level](`[sitepad] ${event}`, {
-      timestamp: this.timestamp(),
-      ...context,
-    })
+    if (logLevelPriority[level] < logLevelPriority[this.level]) return
+    const method = typeof console[level] === 'function' ? console[level] : console.log
+    if (typeof method !== 'function') return
+    try {
+      method.call(console, `[sitepad] ${event}`, {
+        timestamp: this.timestamp(),
+        ...context,
+      })
+    } catch {
+      // Diagnostics must never interrupt the offline write path.
+    }
   }
 }

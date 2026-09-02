@@ -27,4 +27,23 @@ describe('ConsoleAppLogger', () => {
 
     expect(consoleError).not.toHaveBeenCalled()
   })
+
+  it('filters by level and allows a temporary runtime override', () => {
+    const consoleDebug = vi.spyOn(console, 'debug').mockImplementation(() => undefined)
+    const consoleInfo = vi.spyOn(console, 'info').mockImplementation(() => undefined)
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const logger = new ConsoleAppLogger('warn')
+
+    logger.debug('debug.hidden')
+    logger.info('info.hidden')
+    logger.warn('warning.visible')
+    expect(consoleDebug).not.toHaveBeenCalled()
+    expect(consoleInfo).not.toHaveBeenCalled()
+    expect(consoleWarn).toHaveBeenCalledOnce()
+
+    logger.setLevel('debug')
+    logger.debug('debug.visible')
+    expect(logger.getLevel()).toBe('debug')
+    expect(consoleDebug).toHaveBeenCalledOnce()
+  })
 })

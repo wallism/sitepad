@@ -83,6 +83,7 @@ Visible and committed-record assertions:
 | Unsupported lock | Missing Web Locks capability shows the unsupported-browser state and no edit controls |
 | Blocked upgrade | The app connection closes on `versionchange`; a deliberately stubborn second connection produces read-only close-other-tabs guidance |
 | Close before commit | Closing during a 5,000 ms pre-transaction delay reopens at the prior committed result without a false durability claim |
+| Payload-safe logging | Captured unit and Chromium console logs contain lifecycle metadata but exclude marker values entered into the inspection note |
 
 ## Verification commands
 
@@ -98,17 +99,17 @@ Results from 2026-09-03:
 
 ```text
 Vitest 3.2.7
-Test Files  4 passed (4)
-Tests       11 passed (11)
+Test Files  6 passed (6)
+Tests       15 passed (15)
 
 Playwright / Chromium 151.0.7922.34
-Tests       7 passed (8.5s)
+Tests       8 passed (7.7s)
 
 Vite 7.3.6 production build
-50 modules transformed
+51 modules transformed
 dist/index.html                  0.53 kB (gzip 0.32 kB)
 dist/assets/index-27khB7KK.css   4.72 kB (gzip 1.70 kB)
-dist/assets/index-Bc3kNrOe.js  236.12 kB (gzip 75.67 kB)
+dist/assets/index-MIy7zF0P.js  240.82 kB (gzip 76.75 kB)
 ```
 
 The production bundle was also searched for `Fail next write`, `__SITEPAD_TEST__`, `injectNextWriteFailure`, `failNextWrite`, and `Learning trace`; no development fault control or learning-trace marker was present.
