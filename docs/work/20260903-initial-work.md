@@ -58,7 +58,7 @@ Use a short input debounce during typing, persist the latest text while the page
 
 IndexedDB is best-effort storage by default. Sitepad should request persistent storage with `navigator.storage.persist()`, inspect the result, monitor `navigator.storage.estimate()`, and handle `QuotaExceededError`. If persistence is denied, say so in plain language rather than displaying an unconditional safety promise.
 
-The quota policy also needs an offline path. “Sync before continuing” cannot solve storage pressure when there is no connection. For the first slice, simulate quota failure and preserve existing records while refusing only the new photo write.
+The quota policy also needs an offline path. “Sync before continuing” cannot solve storage pressure when there is no connection. In Milestone 4, simulate quota failure and preserve existing records while refusing only the new photo write.
 
 ### 3. Domain state and delivery state are conflated
 
@@ -142,7 +142,7 @@ Retry exhaustion is not permission to destroy field evidence. Replace **discard*
 
 ### Approach A: One truthful vertical slice — selected
 
-Build one inspection with a handful of items, one failure note, one photo, one durable outbox operation, and one three-way conflict. Include deliberate controls or test fixtures for reload, offline mode, quota failure, retry, server rejection, and conflict.
+Build one primary inspection with a handful of items, one failure note, one durable outbox operation, and one three-way conflict. Add a fake photo and a second fixture inspection only in Milestone 4. Include deliberate controls or test fixtures for reload, offline mode, quota failure, retry, server rejection, and conflict.
 
 This covers the complete data journey while keeping the interface small enough to understand.
 
@@ -156,98 +156,216 @@ Build a two-pane phone/server laboratory with an event timeline and switches for
 
 ## Recommended Approach
 
-Choose Approach A. Keep only the smallest UI needed to exercise the full loop:
+Choose Approach A, delivered as four milestones rather than one oversized “first slice.” Milestone 1 proves React → Redux → IndexedDB. Milestone 2 adds a durable outbox and idempotent delivery. Milestone 3 adds a deliberately restricted three-way conflict. Milestone 4 adds quota pressure, a fake photo blob, and queue isolation.
 
-1. **Inspection:** three checklist items, including one failed item with a note and photo.
-2. **Review:** complete the inspection and create a durable outbox operation.
-3. **Outbox:** show local durability, delivery attempts, and the latest error.
-4. **Resolve:** display one auto-merged field and one genuine same-field conflict.
+The authoritative operation boundary is:
 
-Use a small developer-only event strip during the learning phase. Each row should show the action or event, for example:
+- Checklist edits are local drafts. They are debounced and coalesced into the inspection record, but they do not create network operations.
+- **Complete** waits for the newest draft write, then atomically marks the inspection complete and creates exactly one outbox operation.
+- A conflict resolution supersedes the conflicted operation with one new operation against the latest server version.
 
-`itemFailed → persistStarted → transactionCommitted → outboxPending → sendStarted → conflictReceived`
+Use a developer-only event strip during the learning phase. A normal sequence should read:
 
-This makes Redux DevTools, IndexedDB, and the visible UI tell the same story.
+`itemChanged → persistStarted → transactionCommitted → completionRequested → outboxCreated → sendStarted → acknowledged`
+
+This makes Redux DevTools, IndexedDB, and the visible interface tell the same story.
+
+## Resolved Learning Defaults
+
+- **Primary browser:** current stable Chrome on Android; current stable Edge on Windows is the desktop debugging target.
+- **IndexedDB access:** raw IndexedDB behind a small typed adapter. A wrapper can be tried only after Milestone 1 so its value is understood rather than assumed.
+- **Typing persistence:** 300 ms idle debounce, serialized per inspection. `visibilitychange` and **Complete** request an immediate flush but are not treated as guaranteed rescue events.
+- **Photo:** deterministic fake `Blob` in Milestone 4. Real capture and compression are deferred.
+- **Fault injection:** adapter and transport failure controls, surfaced through a developer-only drawer.
+- **API:** one .NET minimal endpoint backed by a tiny SQLite operation ledger. Production server architecture is out of scope.
+- **Phone testing:** deferred until desktop Milestones 1–3 pass. HTTPS certificates, LAN reachability, binding, and CORS are separate setup work.
 
 ## Suggested Component Boundaries
 
 - **React UI:** captures intent and renders selectors. It does not own persistence or network work.
-- **Redux slices:** hold the current inspection projection, local durability status, outbox projections, and conflict data.
-- **RTK listener:** reacts to domain actions, performs IndexedDB transactions through the adapter, and dispatches commit or failure actions.
+- **Redux slices:** hold the current inspection projection, hydration state, local-durability projection, outbox projection, and conflict projection.
+- **RTK listener:** reacts to domain actions, serializes per-inspection writes, performs IndexedDB transactions through the adapter, and dispatches commit or failure actions.
 - **IndexedDB adapter:** owns schema upgrades, short transactions, records, base snapshots, outbox operations, and photo blobs.
-- **Sync worker:** reads durable ready operations, orders them per inspection, sends idempotently, and records responses.
+- **Sync coordinator:** accepts all start, foreground, reachability, and manual triggers through one entry point. It atomically claims durable operations, orders them per inspection, sends idempotently, and records responses.
 - **.NET API:** accepts an operation ID plus base version, returns an acknowledgement, definite rejection, retryable failure, or current server snapshot for conflict handling.
 
-## First-Slice Data Flow
+## State Ownership and Transitions
 
-1. The inspector taps **Fail**.
-2. React dispatches `inspection/itemResultChanged`.
-3. The reducer updates the visible projection immediately and sets local durability to `saving`.
-4. The listener writes the inspection change, base information, and outbox operation in one IndexedDB transaction.
-5. On transaction completion, Redux receives `localWriteCommitted`; the UI may now say **On device** or **Waiting to send**.
-6. The sync worker reads the durable outbox operation and calls the API.
-7. An acknowledgement is recorded in IndexedDB before Redux displays **Sent**.
-8. A version conflict stores the returned server snapshot and exposes Base, Mine, and Server to the Resolve screen.
-9. Resolution creates a new durable operation against the latest server version.
+These are separate axes even when one sync bar summarizes them.
 
-## Scope for the First Build
+| Axis | Transition | Owner/effect | Visible copy |
+|---|---|---|---|
+| Boot | `hydrating → ready` | IndexedDB adapter loads the working projection before editing is enabled | `Opening today’s work…` → normal screen |
+| Local durability | `durable → saving` | Reducer handles an edit; listener schedules the latest local revision | `Saving` |
+| Local durability | `saving → durable` | IndexedDB transaction completes for that revision | `On this device` |
+| Local durability | `saving → storage_error` | Transaction aborts or quota is exceeded | `Not saved — your last change needs attention` |
+| Inspection | `in_progress → completed` | Completion flushes pending edits, then one transaction updates the inspection and creates the outbox operation | `Waiting to send` |
+| Outbox | `pending/retryable → sending` | Sync coordinator claims an eligible operation atomically | `Sending` |
+| Outbox | `sending → acknowledged` | API acknowledgement is recorded locally | `Sent` |
+| Outbox | `sending → retryable` | Network, timeout, `408`, `429`, or `5xx` | `Couldn’t send — will retry` |
+| Outbox | `sending → conflicted` | API returns `409` and the server snapshot | `Needs your call` |
+| Outbox | `sending → rejected` | API returns a definite `400`, `403`, or `422` result | `Couldn’t be accepted — kept on this device` |
 
-### Include
+The sync bar derives one message using this priority: `storage_error`, `conflicted/rejected`, `saving`, `sending`, `pending/retryable`, `acknowledged`. The underlying states remain independent.
 
-- Three checklist items and one expandable failed-item editor.
-- Debounced note persistence with visible `saving`, `durable`, and `storage_error` states.
-- One compressed photo blob and a simulated quota failure.
-- Durable outbox entries with stable operation IDs.
-- Foreground/manual sync against one .NET endpoint.
-- Per-inspection ordering and retry classification.
-- Three-way merge with one automatic merge and one explicit collision.
-- Reload and app-restart recovery.
-- A developer event strip and Redux DevTools support.
+## IndexedDB Schema v1
 
-### Defer
+| Store | Key and indexes | Minimum contents |
+|---|---|---|
+| `inspections` | key `inspectionId` | lifecycle, working snapshot, base snapshot, base version, local revision, durability projection |
+| `outbox` | key `operationId`; indexes `inspectionId`, `[status, nextAttemptAt]` | self-contained base and mine snapshots, attempt count, next attempt, claim ID, lease expiry, last error |
+| `photos` | key `photoId`; index `[inspectionId, itemId]` | Milestone 4 fake blob, byte count, local state |
+| `meta` | key `name` | schema marker and last persistence/estimate observations used by the developer drawer |
 
-- The full Today schedule and all six polished screens.
+Atomic transaction boundaries:
+
+- Draft edit: update one `inspections` record.
+- Completion: update `inspections` and insert the single `outbox` operation together.
+- Acknowledgement/conflict/rejection: update `outbox` and its inspection projection together.
+- Resolution: update the inspection snapshots and insert the superseding operation together.
+
+Editing is disabled while hydration is incomplete. Each inspection has a single writer queue and monotonically increasing local revision, so an older debounced write cannot finish after and overwrite a newer one. Completion waits for the latest scheduled revision before opening its transaction.
+
+## Sync Claim and Recovery
+
+Every trigger dispatches the same `syncRequested` intent. One in-page coordinator holds a runtime mutex, then claims an eligible operation inside IndexedDB by changing `pending/retryable → sending` and writing a claim ID plus a 30-second lease.
+
+On startup, an expired `sending` lease returns to `pending`. This covers a tab closing during a request. Operations for one inspection remain sequential; a second fixture inspection may progress independently.
+
+Retry delays in the learning build are 1, 2, 4, 8, 16, then 30 seconds, driven by an injectable clock. After five failures the UI makes the row prominent but never deletes it. Manual retry sets `nextAttemptAt` to now.
+
+## Minimal API Contract
+
+Request:
+
+```json
+{
+  "operationId": "op-123",
+  "inspectionId": "inspection-9",
+  "baseVersion": 4,
+  "base": { "result": "pass", "note": "" },
+  "mine": { "result": "fail", "note": "Loose at top" }
+}
+```
+
+Responses:
+
+```json
+{ "kind": "acknowledged", "operationId": "op-123", "serverVersion": 5 }
+```
+
+```json
+{
+  "kind": "conflict",
+  "operationId": "op-123",
+  "serverVersion": 6,
+  "server": { "result": "pass", "note": "Checked by office" }
+}
+```
+
+```json
+{ "kind": "rejected", "operationId": "op-123", "code": "inspection_closed", "message": "The office closed this inspection." }
+```
+
+The SQLite operation ledger has a unique constraint on `operationId` and stores the completed response. A duplicate request returns the original response without applying the mutation again. If the client crashes after the server commits but before the acknowledgement is stored locally, retry obtains that same response.
+
+## Restricted Three-Way Merge
+
+Milestone 3 merges only two scalar fields: `result` and `note`. Photos, arrays, deletions, sections, and schema changes are deferred.
+
+For each field:
+
+1. If Mine equals Server, use that value.
+2. If Mine equals Base, use Server.
+3. If Server equals Base, use Mine.
+4. Otherwise, show an explicit collision with no preselected winner.
+
+This is enough to teach the merge without inventing a general collaborative-editing engine.
+
+## Milestone Roadmap
+
+### Milestone 1 — Local durability
+
+- One inspection with three checklist items and a note.
+- React intent, Redux reducer update, listener persistence, and raw IndexedDB rehydration.
+- `hydrating`, `saving`, `durable`, and `storage_error` behavior.
+- Serialized/debounced note writes and completion flush logic, without networking.
+
+### Milestone 2 — Durable delivery
+
+- **Complete** atomically creates one self-contained outbox operation.
+- One .NET endpoint plus SQLite idempotency ledger.
+- Atomic claim, retry classification, acknowledgement persistence, definite rejection, and recovery of an expired claim.
+
+### Milestone 3 — Restricted conflict
+
+- Base, Mine, and Server snapshots for `result` and `note` only.
+- One automatic merge example and one genuine collision requiring an explicit choice.
+- Resolution creates a superseding durable operation.
+
+### Milestone 4 — Storage and queue isolation
+
+- One primary inspection plus a second fixture inspection used only to prove that a conflict does not block unrelated delivery.
+- Real `navigator.storage.persist()` and `navigator.storage.estimate()` checks.
+- Scenarios for persistence granted, persistence denied, and estimate unavailable.
+- Adapter-injected `QuotaExceededError` plus one deterministic fake photo blob.
+- Existing work survives every injected storage failure.
+
+### Later product work
+
+- Full Today schedule and all six polished screens.
+- Real photo capture, compression, upload, and partial-upload recovery.
 - Authentication and offline token expiry.
-- Multi-device use.
-- Global templates and prior-defect downloads.
-- Production photo upload infrastructure.
-- Service-worker Background Sync.
-- Seven-day pruning and midnight presentation rules.
-- GPS, signatures, and markup.
+- Service-worker app-shell caching and optional Background Sync.
+- GPS, signatures, markup, multi-device use, and production deployment.
+
+## Failure Matrix
+
+| Outcome | State | Automatic action | Human action |
+|---|---|---|---|
+| Network error, timeout, `408`, `429`, `5xx` | `retryable` | Backoff and retry while open | Optional **Retry now** |
+| `409` with server snapshot | `conflicted` | No retry until resolved | Choose each true collision |
+| Definite `400`, `403`, `422` | `rejected` | Retain operation and evidence | Review message; amend or export later |
+| IndexedDB abort or quota failure | `storage_error` | Preserve last committed revision | Retry write; photo scenario may continue without the new photo |
+| Duplicate operation ID | Original terminal response | Server returns stored result | None |
+
+There is no discard transition.
 
 ## Success Criteria
 
-The slice is complete when all of these demonstrations work:
+| Proof | Owner |
+|---|---|
+| A result tap updates only its React row | React render test and profiler observation |
+| Editing is blocked until hydration completes | Browser integration test using real IndexedDB |
+| **Saving** remains until transaction completion; failure never shows **On this device** | Listener/adapter integration test with delayed and rejected writes |
+| An older debounced note write cannot overwrite a newer revision | Listener integration test with controlled completion order |
+| Closing and reopening the browser site after **On this device** restores the exact values | Chromium browser test |
+| **Complete** waits for the latest draft and atomically creates one operation | IndexedDB transaction integration test |
+| The outbox operation survives a tab close and reopen | Chromium browser test |
+| Two simultaneous sync triggers result in one claimed request | Sync coordinator integration test |
+| Lost acknowledgement plus retry does not duplicate the server mutation | .NET/SQLite integration test |
+| Retryable and definite-rejection responses produce the documented states without deleting evidence | Transport and browser integration tests |
+| The restricted merge follows all four Base/Mine/Server rules | Pure merge unit tests |
+| A genuine collision has no preselected choice | Resolve component test |
+| One conflicted inspection does not block the second fixture inspection | Sync integration test |
+| Persistence granted, denied, and estimate unavailable are all visible in the developer drawer | Chromium browser scenarios with injected result boundaries |
+| Injected `QuotaExceededError` preserves the previous revision and rejects only the new fake photo | IndexedDB adapter integration test |
 
-1. A result tap updates only the relevant React row.
-2. The status reads **Saving** until IndexedDB reports transaction completion.
-3. Reloading after **On device** restores the exact result and note.
-4. Completing while offline creates a durable outbox operation.
-5. Closing and reopening the app preserves the inspection, base snapshot, photo, and outbox state.
-6. A successful acknowledgement is stored before the UI says **Sent**.
-7. A lost acknowledgement followed by retry does not duplicate the server mutation.
-8. A conflict on one inspection does not block another inspection from syncing.
-9. Independent local and server edits auto-merge; same-field edits require an explicit choice.
-10. A simulated `QuotaExceededError` preserves existing work and produces a specific recovery state.
-11. Redux DevTools and the developer event strip show an understandable sequence for every scenario.
-12. The scenario suite can be repeated without manually repairing IndexedDB between runs.
+Use reducer unit tests for state transitions, real-browser integration tests for IndexedDB and lifecycle behavior, .NET integration tests for the operation ledger, and a small Playwright scenario suite for the visible end-to-end proofs. Do not rely on a mocked IndexedDB implementation for the durability demonstrations.
 
 ## Distribution Plan
 
-The first slice is a local learning build, not a production release. Run the React client and .NET API locally, then test the client on a real phone over HTTPS once the persistence loop works in desktop browsers.
+The milestones are a local learning build, not a production release. Run the React client and .NET API locally. Test the client on a real phone over HTTPS only after desktop Milestones 1–3 pass; certificate trust, LAN routing, API binding, and CORS must be documented when that step begins.
 
 Do not add installability or Background Sync until the foreground flow passes every success criterion. When PWA installation is introduced, include an explicit offline-readiness check that confirms the app shell, inspection data, and persistence status before field use.
 
 ## Open Questions
 
-1. Which phone/browser is the primary learning target? Cross-browser support should follow one proven target, not precede it.
-2. Should the first implementation use raw IndexedDB throughout, or use raw IndexedDB for the initial adapter and then repeat it with a small wrapper such as `idb` to compare ergonomics?
-3. Should photo compression be real in the first slice or represented by a deterministic fake blob so storage and sync behavior can be learned first?
-4. How should the development fault controls be exposed: a compact on-screen drawer, URL flags, or test fixtures only?
+There are no blocking design questions for Milestones 1–4. Cross-browser support, real media capture, production authentication, and deployment remain deliberate later decisions.
 
 ## The Assignment
 
-Before adding another product screen, build the smallest proof of the durability boundary:
+Milestone 1 is the assignment. Before adding networking or another product screen, build the smallest proof of the durability boundary:
 
 > One **Fail** toggle must travel React → Redux → IndexedDB. Show **Saving** until the transaction completes, then **On device**. Close the app, reopen it, and verify the value returns. Repeat once with an injected write failure and confirm the UI never claims the failed change is safe.
 
@@ -258,4 +376,3 @@ Record the Redux actions and IndexedDB result for both runs. That proof determin
 - You said the project is “primarily to help me learn React, Redux and IndexedDB.” That made scope subtraction possible; the stack now determines the lesson instead of merely decorating a large app.
 - You asked to “definitely research best practices,” which ruled out keeping a custom middleware simply because the first document already named it.
 - You requested an infographic with minimal words. That exposed the missing acknowledgement arrow immediately: a system diagram is useful when every arrow represents a promise the UI makes.
-
