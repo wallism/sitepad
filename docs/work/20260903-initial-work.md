@@ -646,6 +646,21 @@ Do not add installability or Background Sync until the foreground flow passes ev
 
 Implementation is sequential because the slice contracts, listener actions, adapter results, UI copy, and browser tests all meet at the same small client seam. Parallel worktrees would create more coordination than useful concurrency for Milestone 1.
 
+### Milestone 2 Implementation Tasks — Durable delivery
+
+- [ ] **T8 (P1)** — Extend the client domain and IndexedDB contracts for `completing`, completed inspections, self-contained outbox operations, claim metadata, retry scheduling, terminal outcomes, and the exact versioned request representation used for retries.
+- [ ] **T9 (P1)** — Implement the first-click **Complete** flow: synchronously freeze editing, capture `targetRevision`, ignore duplicate clicks, flush that exact revision, then atomically mark the inspection complete and create exactly one outbox operation; restore `in_progress` without an operation if storage fails.
+- [ ] **T10 (P1)** — Implement the foreground sync coordinator with one shared `syncRequested` intent, an in-page mutex, atomic IndexedDB claims, 30-second leases, expired-claim recovery, injectable capped backoff, earliest-retry scheduling, and manual retry without erasing attempt history.
+- [ ] **T11 (P1)** — Add the client transport boundary and strict response validation; classify network, HTTP, protocol, conflict, acknowledgement, and definite-rejection outcomes without treating malformed responses as terminal domain decisions.
+- [ ] **T12 (P1)** — Scaffold `server/Sitepad.Api` and its test project with one .NET 10 minimal endpoint, loopback-only defaults, exact-origin CORS, the 32 KiB body limit, closed-schema and known-fixture validation, bounded fields, development-only fault controls, and payload-free structured logs.
+- [ ] **T13 (P1)** — Implement the SQLite inspection and idempotency ledger transaction: canonical request fingerprinting, unique operation IDs, stored terminal responses, version comparison, atomic mutation, bounded busy retry, deterministic same-ID races, and rejection of operation-ID reuse with a different fingerprint.
+- [ ] **T14 (P1)** — Persist client responses atomically with their inspection projection, accept them only when both operation and claim IDs still match, recover a lost local response by replaying the same operation ID, and preserve all conflicted or rejected evidence without implementing Milestone 3 resolution.
+- [ ] **T15 (P1)** — Add the delivery status UI, developer event strip, retry controls, and payload-safe diagnostics for completion, claim, send, retry, acknowledgement, conflict, rejection, stale response, and recovery transitions.
+- [ ] **T16 (P1)** — Add appropriate unit tests alongside each Milestone 2 behavior, including client reducers, selectors, completion state transitions, retry classification, response validation, server validation, canonical fingerprinting, idempotency decisions, and deterministic collaborators; keep tests isolated and cover success, failure, duplicate, and stale-result paths.
+- [ ] **T17 (P1)** — Add the Milestone 2 component, listener/adapter, real-browser IndexedDB and reload, .NET endpoint, and SQLite integration/concurrency proofs, plus the production-build fault-control assertion and every proof named by the Milestone 2 gate.
+- [ ] **T18 (P1)** — After implementation and every Milestone 2 gate pass, update `README.md` to describe the delivered client/server architecture, prerequisites, run and test commands, visible delivery states, development-only diagnostics and fault controls, and the remaining local-learning-build limits; document only behavior proven by the implementation.
+- [ ] **T19 (P1)** — Produce the Milestone 2 evidence packet, verify the README update, and tick off every completed Milestone 2 task; then stop without beginning conflict resolution or any other Milestone 3 work.
+
 ## Open Questions
 
 There are no blocking design questions for Milestones 1–4. Cross-browser support, real media capture, rejected-operation amendment/export, production authentication, and deployment remain deliberate later decisions.
