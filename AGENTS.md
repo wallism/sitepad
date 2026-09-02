@@ -8,7 +8,7 @@ Key routing rules:
 - Architecture → invoke /plan-eng-review
 - Design system/plan review → invoke /design-consultation or /plan-design-review
 - Full review pipeline → invoke /autoplan
-- Bugs/errors → invoke /investigate
+- Bug diagnosis or root-cause analysis without a requested fix → invoke /investigate
 - QA/testing site behavior → invoke /qa or /qa-only
 - Code review/diff check → invoke /review
 - Visual polish → invoke /design-review
@@ -18,6 +18,7 @@ Key routing rules:
 - Author a backlog-ready spec/issue → invoke /spec
 
 Repository best-practice routing:
+- Bug fixes and regressions → invoke /sitepad-bug-fix plus the applicable implementation and testing skills
 - React components and hooks → invoke /sitepad-react
 - Redux Toolkit state, selectors, listeners, or side effects → invoke /sitepad-redux
 - IndexedDB schema, transactions, migrations, or storage durability → invoke /sitepad-indexeddb
