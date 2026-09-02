@@ -69,9 +69,9 @@ The quota policy also needs an offline path. “Sync before continuing” cannot
 
 Model them separately:
 
-- Inspection: `in_progress | completed`
+- Inspection: `in_progress | completing | completed`
 - Local durability: `saving | durable | storage_error`
-- Outbox entry: `pending | sending | acknowledged | retryable | conflicted | rejected`
+- Outbox entry: `pending | sending | acknowledged | retryable | conflicted | superseded | rejected`
 
 One inspection may have several durable changes and several outbox entries. Separating these axes makes selectors, status copy, retries, and tests much clearer.
 
@@ -128,6 +128,9 @@ Retry exhaustion is not permission to destroy field evidence. Replace **discard*
 - IndexedDB work started during unload cannot be assumed to complete, especially on mobile: [MDN Using IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API/Using_IndexedDB).
 - Background Sync is not Baseline across widely used browsers: [MDN Background Synchronization API](https://developer.mozilla.org/en-US/docs/Web/API/Background_Synchronization_API).
 - RTK listener middleware is the recommended Redux default for reacting to actions and coordinating longer asynchronous workflows: [Redux Side Effects Approaches](https://redux.js.org/usage/side-effects-approaches).
+- Web Locks coordinate same-origin tabs and workers, and require a secure context: [MDN Web Locks API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API).
+- A Playwright persistent context stores browser session data in a user-data directory and only one browser instance may use that directory at a time: [Playwright `launchPersistentContext`](https://playwright.dev/docs/api/class-browsertype#browser-type-launch-persistent-context).
+- SQLite serializes writers; Microsoft.Data.Sqlite warns that a deferred read transaction may fail when upgraded to a write and then requires retrying the whole transaction: [Microsoft.Data.Sqlite transactions](https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/transactions), [SQLite isolation](https://www.sqlite.org/isolation.html).
 
 ## Premises
 
@@ -161,12 +164,18 @@ Choose Approach A, delivered as four milestones rather than one oversized “fir
 The authoritative operation boundary is:
 
 - Checklist edits are local drafts. They are debounced and coalesced into the inspection record, but they do not create network operations.
-- **Complete** waits for the newest draft write, then atomically marks the inspection complete and creates exactly one outbox operation.
-- A conflict resolution supersedes the conflicted operation with one new operation against the latest server version.
+- The first **Complete** click synchronously enters `completing`, freezes editing, captures `targetRevision`, and ignores later clicks. It flushes exactly that revision, then atomically marks the inspection complete and creates exactly one outbox operation.
+- A conflict resolution atomically marks the conflicted operation `superseded` and creates one successor against the latest server version.
 
 Use a developer-only event strip during the learning phase. A normal sequence should read:
 
-`itemChanged → persistStarted → transactionCommitted → completionRequested → outboxCreated → sendStarted → acknowledged`
+For an already committed edit:
+
+`itemChanged → persistStarted → transactionCommitted → completionRequested → completionCommitted → sendStarted → acknowledged`
+
+For an immediate completion while a debounce is pending:
+
+`itemChanged → completionRequested → persistStarted → transactionCommitted → completionCommitted → sendStarted → acknowledged`
 
 This makes Redux DevTools, IndexedDB, and the visible interface tell the same story.
 
@@ -204,6 +213,17 @@ These are learning defaults, not claims that every production Sitepad feature be
 - **Sync coordinator:** accepts all start, foreground, reachability, and manual triggers through one entry point. It atomically claims durable operations, orders them per inspection, sends idempotently, and records responses.
 - **.NET API:** accepts an operation ID plus base version, returns an acknowledgement, definite rejection, retryable failure, or current server snapshot for conflict handling.
 
+### Sources of truth
+
+| Surface | Authority |
+|---|---|
+| React | No authoritative state; dispatches intent and renders selectors |
+| Redux | Current in-memory working projection and runtime UI states |
+| IndexedDB | Authoritative committed local snapshot and durable outbox |
+| Edit-lock holder | Sole local writer for the origin |
+| SQLite | Authoritative acknowledged server version and operation ledger |
+| Sync coordinator | Orchestration only; it owns no durable state |
+
 ## State Ownership and Transitions
 
 These are separate axes even when one sync bar summarizes them.
@@ -215,12 +235,15 @@ These are separate axes even when one sync bar summarizes them.
 | Local durability | `durable → saving` | Reducer handles an edit; listener schedules the latest local revision | `Saving` |
 | Local durability | `saving → durable` | IndexedDB transaction completes for that revision | `On this device` |
 | Local durability | `saving → storage_error` | Transaction aborts or quota is exceeded | `Not saved — your last change needs attention` |
-| Inspection | `in_progress → completed` | Completion flushes pending edits, then one transaction updates the inspection and creates the outbox operation | `Waiting to send` |
+| Inspection | `in_progress → completing` | First completion click freezes edits, captures `targetRevision`, and ignores later completion clicks | `Finishing on this device…` |
+| Inspection | `completing → completed` | Exact target revision is committed; one transaction verifies it, completes the inspection, and creates the outbox operation | `Waiting to send` |
+| Inspection | `completing → in_progress` | Flush or completion transaction fails | `Not completed — your work is still here` |
 | Outbox | `pending/retryable → sending` | Sync coordinator claims an eligible operation atomically | `Sending` |
 | Outbox | `sending → acknowledged` | API acknowledgement is recorded locally | `Sent` |
 | Outbox | `sending → retryable` | Network, timeout, `408`, `429`, or `5xx` | `Couldn’t send — will retry` |
 | Outbox | `sending → conflicted` | API returns `409` and the server snapshot | `Needs your call` |
-| Outbox | `sending → rejected` | API returns a definite `400`, `403`, or `422` result | `Couldn’t be accepted — kept on this device` |
+| Outbox | `sending → rejected` | API returns a validated terminal rejection body, commonly with `400`, `403`, or `422` | `Couldn’t be accepted — kept on this device` |
+| Outbox | `conflicted → superseded` | Resolution audit and successor operation commit atomically | Successor returns to `Waiting to send` |
 
 The sync bar derives one message using this priority: `storage_error`, `conflicted/rejected`, `saving`, `sending`, `pending/retryable`, `acknowledged`. The underlying states remain independent.
 
@@ -230,15 +253,17 @@ Each inspection tracks three revision counters:
 - `scheduledRevision`: the newest revision handed to the per-inspection persistence queue;
 - `durableRevision`: the newest revision confirmed by a completed IndexedDB transaction.
 
-The UI may show **On this device** only when `durableRevision === currentRevision`. **Complete** requests an immediate flush and remains disabled until those revisions match. If that flush fails, the inspection stays `in_progress`, no outbox operation is created, and the user sees `storage_error`.
+Here `durableRevision` means **committed to IndexedDB for this origin**. It does not claim eviction protection or physical-media flush; transaction durability remains a browser hint. The UI may show **On this device** only when `durableRevision === currentRevision`. **Complete** is enabled while editing; its first click enters `completing`, captures `targetRevision = currentRevision`, freezes edits, and flushes that exact target. If the flush or completion transaction fails, the inspection returns to `in_progress`, no outbox operation is created, and the user sees `storage_error`.
 
-Editing is allowed only in `ready`. A `hydration_error` retry repeats the non-destructive open/upgrade/read path; resetting the database is a separate developer-only destructive control. v0.1 also permits one active editing tab: the primary tab holds an exclusive Web Lock, while another tab is read-only and says **Sitepad is already open in another tab**. Cross-tab editing is later work.
+Editing is allowed only in `ready`. A `hydration_error` retry repeats the non-destructive open/upgrade/read path; resetting the database is a separate developer-only destructive control. A retry after `storage_error` persists the current Redux snapshot, not an older failed snapshot; later edits remain coalescible.
+
+v0.1 permits one active editing tab: the primary tab holds an exclusive Web Lock, while another tab is read-only and says **Sitepad is already open in another tab**. Takeover is manual: after the first tab closes, the second tab must reload, acquire the lock, and rehydrate from IndexedDB before enabling edits. Every open database connection closes on `versionchange`; a blocked upgrade shows a close-other-tabs message and remains read-only. Cross-tab live editing and automatic leadership transfer are later work.
 
 ## IndexedDB Schema v1
 
 | Store | Key and indexes | Minimum contents |
 |---|---|---|
-| `inspections` | key `inspectionId` | lifecycle, working snapshot, base snapshot, base version, local revision, durability projection |
+| `inspections` | key `inspectionId` | lifecycle, working snapshot, base snapshot, base version, committed revision, active operation ID, last storage diagnostic |
 | `outbox` | key `operationId`; indexes `inspectionId`, `[status, nextAttemptAt]` | self-contained base and mine snapshots, predecessor operation ID, attempt count, next attempt, claim ID, lease expiry, last error |
 | `photos` | key `photoId`; index `[inspectionId, itemId]` | Milestone 4 fake blob, byte count, local state |
 | `meta` | key `name` | schema marker and last persistence/estimate observations used by the developer drawer |
@@ -246,21 +271,23 @@ Editing is allowed only in `ready`. A `hydration_error` retry repeats the non-de
 Atomic transaction boundaries:
 
 - Draft edit: update one `inspections` record.
-- Completion: update `inspections` and insert the single `outbox` operation together.
+- Completion: in `completing`, re-read the persisted inspection, verify `lifecycle === in_progress` and `localRevision === targetRevision`, then update `inspections`, set `activeOperationId`, and insert the single `outbox` operation together.
 - Acknowledgement/conflict/rejection: update `outbox` and its inspection projection together.
-- Resolution: update the inspection snapshots and insert the superseding operation together.
+- Resolution: verify the conflicted operation is still the inspection’s `activeOperationId`, record the resolution audit, mark it `superseded`, update the snapshots, and insert the successor operation together.
 
-Editing is disabled unless hydration is `ready`. Each inspection has a single writer queue and monotonically increasing local revision, so an older debounced write cannot finish after and overwrite a newer one. Completion waits until the durable revision equals the current revision before opening its transaction.
+Editing is disabled unless hydration is `ready`. Each inspection has a single writer queue and monotonically increasing local revision, so an older debounced write cannot finish after and overwrite a newer one. Only committed revision and storage diagnostics are rehydrated; runtime `saving` and `storage_error` projections are rebuilt in Redux. A completed hydration begins as locally durable.
 
 ## Sync Claim and Recovery
 
-Every trigger dispatches the same `syncRequested` intent. One in-page coordinator holds a runtime mutex, then claims an eligible operation inside IndexedDB by changing `pending/retryable → sending` and writing a claim ID plus a 30-second lease.
+Every trigger dispatches the same `syncRequested` intent. One in-page coordinator holds a runtime mutex as an optimization, then uses one IndexedDB `readwrite` transaction over `outbox` to select an eligible operation and change `pending/retryable → sending` with a claim ID plus a 30-second lease. The transaction is the correctness boundary across tabs.
 
 On startup and each coordinator pass, an expired `sending` lease returns to `pending`. This covers a tab closing during a request. v0.1 permits only one nonterminal operation per inspection, so it needs no per-inspection sequence counter; a resolution names the conflicted operation as its predecessor. A second fixture inspection may progress independently.
 
 Retry delays in the learning build are 1, 2, 4, 8, 16, then 30 seconds, driven by an injectable clock. The coordinator arms one timer for the earliest `nextAttemptAt` and recomputes it after every attempt, foreground event, successful reachability probe, and manual retry. After five failures the UI makes the row prominent but never deletes it. Manual retry sets `nextAttemptAt` to now.
 
 A response may update local state only when both its `operationId` and `claimId` still match the sending record. A late completion from an expired claim is ignored. The visible terminal state is not changed until the response is committed to IndexedDB. If the server succeeds but that local response transaction fails, the operation stays `sending`; lease recovery resends the same operation ID and obtains the server’s stored acknowledgement, conflict, or rejection.
+
+The transport validates a known response `kind`, matching operation ID, and the fields required by that kind. Invalid JSON, an unknown kind, a mismatched operation ID, or a conflict without a valid server snapshot is a retryable `protocol_error`; it is never converted into a terminal domain rejection. A terminal domain rejection is recognized from a valid `rejected` response body, not from its HTTP status alone.
 
 ## Minimal API Contract
 
@@ -302,22 +329,22 @@ Responses:
 
 The endpoint executes this ordered algorithm:
 
-1. Compute a deterministic fingerprint of the mutation payload.
+1. Serialize the versioned mutation DTO to one canonical representation with fixed property order, explicit null/default values, and defined text normalization; hash those exact UTF-8 bytes and retain the bytes for every retry.
 2. Look up `operationId` in the ledger.
 3. If it exists with the same fingerprint, return its stored terminal response.
 4. If it exists with a different fingerprint, reject the request as operation-ID reuse.
 5. Load the inspection and apply any deterministic rejection fixture.
 6. Compare `baseVersion`; return and store a conflict response when it is stale.
-7. Apply the mutation, increment the version, and atomically store the fingerprint and terminal response with the record mutation.
+7. Apply the mutation, increment the version, and atomically store the fingerprint and terminal response with the record mutation. A valid domain rejection is also stored even though it makes no inspection mutation.
 
-SQLite enforces the unique `operationId`. The record mutation, version increment, request fingerprint, and terminal response are one database transaction. If the client closes after the server commits but before the response is stored locally, retry obtains the same response without applying the mutation again.
+SQLite enforces the unique `operationId`. Ledger lookup, version comparison, record mutation, version increment, request fingerprint, and terminal response run in one non-deferred/immediate transaction with a bounded busy timeout. On `SQLITE_BUSY` or `SQLITE_LOCKED`, the server retries the entire transaction; exhaustion returns a retryable response without a terminal ledger row. If a unique-ID race is lost, the transaction rolls back and re-reads the winner’s ledger row, then applies the same-fingerprint/different-fingerprint rule. Database work is deliberately short and synchronous because Microsoft.Data.Sqlite’s async methods execute synchronously. If the client closes after the server commits but before the response is stored locally, retry obtains the same response without applying the mutation again.
 
 Client projections follow equally explicit rules:
 
-- **Acknowledged:** atomically replace Base and Working with the canonical `server` snapshot, update `baseVersion`, and mark the operation acknowledged.
+- **Acknowledged:** atomically replace Base and Working with the canonical `server` snapshot, update `baseVersion`, mark the operation acknowledged, and clear `activeOperationId`.
 - **Conflict:** preserve Base and Mine, store Server, and mark the operation conflicted.
 - **Resolved:** set Base to the received Server snapshot, set Mine to the chosen merged result, and create one new operation naming the conflicted predecessor.
-- **Rejected:** preserve all evidence and expose it read-only; amendment and export are later milestones.
+- **Rejected:** preserve all evidence, mark it terminal, clear `activeOperationId`, and expose it read-only; amendment and export are later milestones.
 
 ## Restricted Three-Way Merge
 
@@ -342,17 +369,23 @@ This is enough to teach the merge without inventing a general collaborative-edit
 - Serialized/debounced note writes and a developer-only **Flush now** control, without **Complete** or networking.
 - One-tab edit lock with a read-only secondary-tab state.
 
+**Gate:** stop until reload, delayed-write, immediate-flush, double-flush, hydration-error, write-retry, secondary-tab takeover, and blocked-upgrade proofs pass.
+
 ### Milestone 2 — Durable delivery
 
-- Introduce **Complete**; it waits for the latest durable revision and atomically creates one self-contained outbox operation.
+- Introduce **Complete**; its first click freezes edits, flushes the captured target revision, and atomically creates one self-contained outbox operation.
 - One .NET endpoint plus SQLite idempotency ledger.
 - Atomic claim, retry classification, acknowledgement persistence, definite rejection, and recovery of an expired claim.
+
+**Gate:** stop until duplicate trigger, stale claim, lost local response, malformed response, idempotent retry, and concurrent SQLite request proofs pass.
 
 ### Milestone 3 — Restricted conflict
 
 - Base, Mine, and Server snapshots for `result` and `note` only.
 - One automatic merge example and one genuine collision requiring an explicit choice.
 - Resolution creates a superseding durable operation.
+
+**Gate:** stop until all four merge rules, double Resolve, stale Resolve, and the no-preselection proof pass.
 
 ### Milestone 4 — Storage and queue isolation
 
@@ -362,6 +395,10 @@ This is enough to teach the merge without inventing a general collaborative-edit
 - Adapter-injected `QuotaExceededError` plus one deterministic fake photo blob.
 - One manual check records the real browser’s `persist()` and `estimate()` outcomes; automated tests use injected boundaries rather than pretending those browser decisions are deterministic.
 - Existing work survives every injected storage failure.
+
+The fake-photo write uses one `inspections + photos` transaction: write the blob and its inspection reference together, or abort both. Quota failure therefore leaves neither an orphaned blob nor a dangling reference.
+
+**Gate:** stop until quota rollback, real-browser storage observation, and cross-inspection queue-isolation proofs pass.
 
 ### Later product work
 
@@ -378,8 +415,9 @@ This is enough to teach the merge without inventing a general collaborative-edit
 |---|---|---|---|
 | Network error, timeout, `408`, `429`, `5xx` | `retryable` | Backoff and retry while open | Optional **Retry now** |
 | `409` with server snapshot | `conflicted` | No retry until resolved | Choose each true collision |
-| Definite `400`, `403`, `422` | `rejected` | Retain operation and evidence read-only | Review message; amendment/export is later work |
+| Validated terminal rejection body, commonly with `400`, `403`, or `422` | `rejected` | Retain operation and evidence read-only | Review message; amendment/export is later work |
 | IndexedDB abort or quota failure | `storage_error` | Preserve last committed revision | Retry write; photo scenario may continue without the new photo |
+| Invalid JSON, unknown response kind, mismatched operation ID, or invalid conflict body | `retryable` with `protocol_error` | Backoff; retain the sending evidence | Optional **Retry now** and inspect developer details |
 | Duplicate operation ID with the same fingerprint | Preserve the stored `acknowledged`, `conflicted`, or `rejected` result | Server returns stored result | None |
 | Duplicate operation ID with a different fingerprint | `rejected` | Server refuses operation-ID reuse | Correct the client defect; evidence remains local |
 
@@ -387,7 +425,7 @@ There is no discard transition.
 
 ## Success Criteria
 
-| Proof | Owner |
+| Proof | Proof mechanism |
 |---|---|
 | A result tap updates only its React row | React render test and profiler observation |
 | Editing is blocked until hydration completes | Browser integration test using real IndexedDB |
@@ -395,20 +433,29 @@ There is no discard transition.
 | **Saving** remains until transaction completion; failure never shows **On this device** | Listener/adapter integration test with delayed and rejected writes |
 | **On this device** appears only when `durableRevision === currentRevision` | Selector and listener integration tests |
 | An older debounced note write cannot overwrite a newer revision | Listener integration test with controlled completion order |
+| Type then immediately **Complete**, or an input racing completion, captures exactly one target revision | Listener/IndexedDB integration tests with controlled event order |
+| Double **Complete** produces exactly one outbox operation | Component and IndexedDB integration test |
 | Closing and reopening the browser after **On this device** restores the exact values | Playwright Chromium test using a persistent browser context |
 | A secondary tab is read-only while the first tab holds the edit lock | Playwright two-page browser test |
+| A secondary tab can edit only after reload, lock acquisition, and fresh rehydration | Playwright two-page takeover test |
+| `versionchange` closes existing database connections and a blocked upgrade stays read-only with clear copy | Playwright two-page upgrade test |
 | **Complete** waits for the latest draft and atomically creates one operation | IndexedDB transaction integration test |
 | The outbox operation survives a tab close and reopen | Chromium browser test |
 | Two simultaneous sync triggers result in one claimed request | Sync coordinator integration test |
 | A stale claim response cannot overwrite the current operation state | Sync coordinator integration test with controlled responses |
 | Lost acknowledgement plus retry does not duplicate the server mutation | .NET/SQLite integration test |
+| Canonically equivalent DTOs fingerprint identically; operation-ID reuse with different bytes is rejected | Server serialization and SQLite integration tests |
+| Concurrent same-ID/same-payload, same-ID/different-payload, and different-ID/same-base requests yield deterministic stored results; the final case yields one acknowledgement and one conflict | .NET/SQLite concurrency integration tests |
 | Server terminal response plus local persistence failure replays the same operation and stores the same acknowledgement, conflict, or rejection | Transport/IndexedDB integration tests |
 | Retryable and definite-rejection responses produce the documented states without deleting evidence | Transport and browser integration tests |
+| Malformed or mismatched server responses become retryable protocol errors, never terminal rejections | Transport integration tests |
 | The restricted merge follows all four Base/Mine/Server rules | Pure merge unit tests |
 | A genuine collision has no preselected choice | Resolve component test |
+| Double Resolve produces one successor and a stale Resolve cannot replace the active operation | IndexedDB resolution transaction integration tests |
 | One conflicted inspection does not block the second fixture inspection | Sync integration test |
 | Persistence granted, denied, and estimate unavailable are all visible in the developer drawer | Chromium browser scenarios with injected boundaries plus one recorded manual real-browser check |
 | Injected `QuotaExceededError` preserves the previous revision and rejects only the new fake photo | IndexedDB adapter integration test |
+| Retry after a failed local write stores the newest Redux snapshot rather than the earlier failed snapshot | Listener/adapter integration test |
 
 Use reducer unit tests for state transitions, real-browser integration tests for IndexedDB and lifecycle behavior, .NET integration tests for the operation ledger, and a small Playwright scenario suite for the visible end-to-end proofs. Do not rely on a mocked IndexedDB implementation for the durability demonstrations.
 
